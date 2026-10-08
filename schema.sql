@@ -16,6 +16,9 @@ create table if not exists public.profiles (
   created_at  timestamptz not null default now()
 );
 
+-- Per-person opt-out for notification emails (bell in the sidebar)
+alter table public.profiles add column if not exists email_notifications boolean not null default true;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -416,6 +419,22 @@ drop policy if exists "attachments objects delete" on storage.objects;
 create policy "attachments objects delete" on storage.objects
   for delete to authenticated
   using (bucket_id = 'attachments' and public.is_member(public.path_project(name)));
+
+-- ------------------------------------------------------------
+-- Email notifications: what the notify Edge Function has sent, so repeat events
+-- within a few minutes don't send repeat emails. Service role only: RLS on, no policies.
+-- ------------------------------------------------------------
+create table if not exists public.email_log (
+  id            bigint generated always as identity primary key,
+  kind          text not null,
+  ref_id        uuid not null,
+  recipient_id  uuid not null references public.profiles (id) on delete cascade,
+  sent_at       timestamptz not null default now()
+);
+
+create index if not exists idx_email_log_lookup on public.email_log (kind, ref_id, recipient_id, sent_at desc);
+
+alter table public.email_log enable row level security;
 
 -- ------------------------------------------------------------
 -- Realtime: live updates for boards, comments and membership

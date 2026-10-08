@@ -32,6 +32,14 @@ export function AuthProvider({ children }) {
     profile,
     loading,
     signOut: () => supabase.auth.signOut(),
+    // Optimistic profile update for the signed-in user; resolves to an error or null.
+    updateProfile: async (patch) => {
+      const previous = profile;
+      setProfile((cur) => (cur ? { ...cur, ...patch } : cur));
+      const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+      if (error) setProfile(previous);
+      return error;
+    },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

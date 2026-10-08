@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { Avatar, Icon, Modal } from './ui';
 import { confirmDialog } from '../lib/dialog';
+import { notify } from '../lib/notify';
 
 export default function MembersModal({ project, members, isOwner, onClose, onChanged }) {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
     }
     setEmail('');
     toast(`Added ${data.full_name || data.email} to ${project.name}`);
+    notify('member_added', { project_id: project.id, user_id: data.id });
     onChanged();
   };
 

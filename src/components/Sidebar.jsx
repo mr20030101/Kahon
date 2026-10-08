@@ -4,11 +4,20 @@ import { useAuth } from '../context/AuthContext';
 import { useWorkspace } from '../context/WorkspaceContext';
 import NewProjectModal from './NewProjectModal';
 import { Avatar, Icon, Lockup } from './ui';
+import { useToast } from '../context/ToastContext';
 
 export default function Sidebar({ open, onNavigate }) {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, updateProfile } = useAuth();
+  const toast = useToast();
   const { projects, loaded } = useWorkspace();
   const [showNew, setShowNew] = useState(false);
+  const emailsOn = profile?.email_notifications !== false;
+
+  const toggleEmails = async () => {
+    const error = await updateProfile({ email_notifications: !emailsOn });
+    if (error) toast(error.message, 'error');
+    else toast(emailsOn ? 'Email notifications turned off' : 'Email notifications turned on');
+  };
 
   return (
     <aside className={`sidebar${open ? ' is-open' : ''}`}>
@@ -49,6 +58,17 @@ export default function Sidebar({ open, onNavigate }) {
           <strong className="truncate">{profile?.full_name || 'Loading…'}</strong>
           <span className="truncate">{profile?.email}</span>
         </div>
+        {profile && (
+          <button
+            className="icon-btn on-dark"
+            onClick={toggleEmails}
+            aria-pressed={emailsOn}
+            aria-label={emailsOn ? 'Turn off email notifications' : 'Turn on email notifications'}
+            title={emailsOn ? 'Email notifications on' : 'Email notifications off'}
+          >
+            {emailsOn ? <Icon.bell /> : <Icon.bellOff />}
+          </button>
+        )}
         <button className="icon-btn on-dark" onClick={signOut} aria-label="Sign out" title="Sign out">
           <Icon.logout />
         </button>

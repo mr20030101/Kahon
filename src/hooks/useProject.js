@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { byPosition } from '../lib/position';
 import { useToast } from '../context/ToastContext';
 import { removeAttachmentFiles } from '../components/Attachments';
+import { notify } from '../lib/notify';
 
 const EMPTY = { loading: true, error: null, project: null, sections: [], tasks: [], members: [] };
 
@@ -96,6 +97,7 @@ export function useProject(projectId) {
     upsert('tasks', { id, ...patch });
     const { error } = await supabase.from('tasks').update(patch).eq('id', id);
     if (error) fail(error);
+    else if (patch.assignee_id) notify('task_assigned', { task_id: id });
   }, [fail, upsert]);
 
   const patchLocal = useCallback((id, patch) => {

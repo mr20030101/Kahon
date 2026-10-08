@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext';
 import Attachments, { removeAttachmentFiles } from './Attachments';
 import { AssigneeSelect, Avatar, Check, DueInput, Icon, InlineAdd, PrioritySelect } from './ui';
 import { confirmDialog, isDialogOpen } from '../lib/dialog';
+import { notify } from '../lib/notify';
 
 const COMMENT_SELECT = 'id, body, created_at, author_id, author:profiles(id, full_name, color, email)';
 
@@ -104,6 +105,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
     onPatch?.(taskId, patch);
     const { error } = await supabase.from('tasks').update(patch).eq('id', taskId);
     if (error) toast(`Could not save: ${error.message}`, 'error');
+    else if (patch.assignee_id) notify('task_assigned', { task_id: taskId });
   };
 
   const saveTitle = () => {
@@ -173,6 +175,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
       return toast(error.message, 'error');
     }
     setComments((list) => (list.some((x) => x.id === data.id) ? list : [...list, data]));
+    notify('comment_added', { comment_id: data.id });
   };
 
   const deleteComment = async (c) => {

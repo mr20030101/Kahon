@@ -53,10 +53,57 @@ git push -u origin main
 
 `vercel.json` rewrites every route to `index.html`, so links like `/p/<project-id>` work on refresh.
 
+## 5. Set up email (Resend)
+
+Kahon sends two kinds of email, both through [Resend](https://resend.com) (free for 3,000 emails a month, 100 a day):
+
+- **Account emails** (sign-up confirmation), sent by Supabase Auth over Resend's SMTP.
+- **Notifications**: you were assigned a task, added to a project, or someone commented on a task you're assigned to or created. Sent by the `notify` Edge Function. Each person can turn these off with the bell in the sidebar.
+
+### Resend
+
+1. Create a Resend account, then **Domains → Add Domain** and add the DNS records it shows at your domain registrar. Wait until the domain shows **Verified**. Until then Resend only delivers to your own Resend login address.
+2. **API Keys → Create API Key** with **Sending access**. Copy it; it starts with `re_`.
+
+### Account emails (Supabase SMTP)
+
+1. Supabase → **Authentication → Emails → SMTP Settings**, turn on **Enable Custom SMTP** and fill in:
+
+   | Field | Value |
+   |---|---|
+   | Sender email | `notifications@yourdomain.com` (on the verified domain) |
+   | Sender name | `Kahon` |
+   | Host | `smtp.resend.com` |
+   | Port | `465` |
+   | Username | `resend` |
+   | Password | your Resend API key |
+
+2. **Authentication → Rate Limits**: raise **emails per hour** (the default is very low with custom SMTP; 30–100 is sensible).
+3. Optional: **Authentication → Emails → Templates → Confirm signup**, set the subject to `Confirm your Kahon account` and paste `supabase/templates/confirm-signup.html` as the body (replace `YOUR-APP-URL`).
+
+### Notifications (Edge Function)
+
+1. Run `supabase/migrations/20261008_email_notifications.sql` in the **SQL Editor** (fresh installs get it from `schema.sql`).
+2. Deploy the function with the Supabase CLI (`npx` downloads it; nothing to install). Your project ref is the subdomain of your Supabase URL.
+
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <your-project-ref>
+   npx supabase secrets set RESEND_API_KEY=re_xxx \
+     EMAIL_FROM="Kahon <notifications@yourdomain.com>" \
+     APP_URL=https://kahon.vercel.app
+   npx supabase functions deploy notify
+   ```
+
+`APP_URL` is used for the links and logo in emails. To test locally before deploying, set it to `http://localhost:5173`. If the function isn't deployed, the app keeps working and only logs a warning in the browser console.
+
 ## Project structure
 
 ```
 supabase/schema.sql        Tables, RLS policies, RPC functions, realtime
+supabase/migrations/       Changes to run on an existing database
+supabase/functions/notify  Edge Function that sends notification emails
+supabase/templates/        Supabase Auth email templates
 src/
   lib/                     Supabase client, dates, ordering helpers
   context/                 Auth, workspace (project list), toasts
@@ -76,6 +123,5 @@ src/
 
 - Email invites for people without an account (Supabase `inviteUserByEmail` via an Edge Function)
 - Task search and filters (assignee, priority, due)
-- Attachments with Supabase Storage
-- Notifications when you're assigned or mentioned
+- @mentions in comments, with notifications
 - Timeline / calendar view
