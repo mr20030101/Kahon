@@ -501,6 +501,25 @@ create index if not exists idx_email_log_lookup on public.email_log (kind, ref_i
 alter table public.email_log enable row level security;
 
 -- ------------------------------------------------------------
+-- Ask AI: one row per request, for the per-person daily limit and token spend.
+-- Service role only (the ask-ai Edge Function): RLS on, no policies.
+-- ------------------------------------------------------------
+create table if not exists public.ai_requests (
+  id             bigint generated always as identity primary key,
+  user_id        uuid not null references public.profiles (id) on delete cascade,
+  task_id        uuid references public.tasks (id) on delete set null,
+  kind           text not null,
+  model          text,
+  input_tokens   integer,
+  output_tokens  integer,
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists idx_ai_requests_user on public.ai_requests (user_id, created_at desc);
+
+alter table public.ai_requests enable row level security;
+
+-- ------------------------------------------------------------
 -- Realtime: live updates for boards, comments and membership
 -- ------------------------------------------------------------
 alter table public.tasks           replica identity full;

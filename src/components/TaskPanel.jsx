@@ -6,6 +6,7 @@ import { timeAgo } from '../lib/dates';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import Attachments, { removeAttachmentFiles } from './Attachments';
+import AskAI from './AskAI';
 import { AssigneeSelect, Avatar, Check, DueInput, Icon, InlineAdd, PrioritySelect } from './ui';
 import { confirmDialog, isDialogOpen } from '../lib/dialog';
 import { notify } from '../lib/notify';
@@ -166,17 +167,17 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
     onClose();
   };
 
-  const postComment = async () => {
-    const body = comment.trim();
+  const postComment = async (text = comment) => {
+    const body = text.trim().slice(0, 5000);
     if (!body) return;
-    setComment('');
+    if (text === comment) setComment('');
     const { data, error } = await supabase
       .from('comments')
       .insert({ task_id: taskId, author_id: user.id, body })
       .select(COMMENT_SELECT)
       .single();
     if (error) {
-      setComment(body);
+      if (text === comment) setComment(body);
       return toast(error.message, 'error');
     }
     setComments((list) => (list.some((x) => x.id === data.id) ? list : [...list, data]));
@@ -304,6 +305,16 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
 
             <Attachments ref={attachmentsRef} task={task} userId={user.id} canManageAll={isOwner} />
 
+            <AskAI
+              taskId={taskId}
+              canAddSubtasks={!task.parent_id}
+              onAddSubtasks={async (titles) => {
+                for (const title of titles) await addSubtask(title);
+                toast(`Added ${titles.length} subtask${titles.length === 1 ? '' : 's'}`);
+              }}
+              onPostComment={(text) => postComment(text)}
+            />
+
             {!task.parent_id && (
               <>
                 <h4 className="panel-h">Subtasks {subtasks.length > 0 && <span className="count">{subtasks.filter((s) => s.completed).length}/{subtasks.length}</span>}</h4>
@@ -352,7 +363,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
               />
               <div className="comment-actions">
                 <span className="hint">Ctrl + Enter to post</span>
-                <button className="btn btn-primary" onClick={postComment} disabled={!comment.trim()}>Comment</button>
+                <button className="btn btn-primary" onClick={() => postComment()} disabled={!comment.trim()}>Comment</button>
               </div>
             </div>
 

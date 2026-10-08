@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { Icon } from './ui';
+import FileViewer, { previewKindOf } from './FileViewer';
 
 const BUCKET = 'attachments';
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -33,9 +34,6 @@ const FILE_TYPES = {
 };
 const ACCEPT = Object.keys(FILE_TYPES).map((e) => `.${e}`).join(',');
 const MIME_EXT = Object.fromEntries(Object.entries(FILE_TYPES).map(([ext, [, mime]]) => [mime, ext]));
-// Opened in a new tab; everything else downloads under its original name.
-const VIEWABLE = new Set(['image', 'pdf']);
-const VIEWABLE_MIME = new Set(['text/plain', 'text/markdown', 'text/csv']);
 
 const extOf = (name = '') => (name.includes('.') ? name.split('.').pop().toLowerCase() : '');
 const kindOf = (a) => FILE_TYPES[extOf(a.name)]?.[0] || FILE_TYPES[MIME_EXT[a.mime_type]]?.[0] || 'doc';
@@ -84,6 +82,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
   const [items, setItems] = useState([]);
   const [uploading, setUploading] = useState(0);
   const [viewing, setViewing] = useState(null);
+  const [previewing, setPreviewing] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -191,12 +190,16 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
                 {a.url ? <img src={a.url} alt={a.name} loading="lazy" /> : <span className="muted small">Unavailable</span>}
               </button>
             ) : (
-              <a className="attachment-file" title={a.name}
-                href={(VIEWABLE.has(a.kind) || VIEWABLE_MIME.has(a.mime_type) ? a.url : a.downloadUrl) || undefined}
-                target="_blank" rel="noreferrer">
+              <a className="attachment-file" title={previewKindOf(a.name) ? `Preview ${a.name}` : `Download ${a.name}`}
+                href={(previewKindOf(a.name) ? a.url : a.downloadUrl) || undefined}
+                onClick={(e) => {
+                  if (!previewKindOf(a.name) || !a.url) return;
+                  e.preventDefault();
+                  setPreviewing(a);
+                }}>
                 <span className={`file-badge file-${a.kind}`}>{extOf(a.name) || 'file'}</span>
                 <span className="file-name">{a.name}</span>
-                <span className="hint">{formatBytes(a.size_bytes)}</span>
+                <span className="hint">{formatBytes(a.size_bytes)}{previewKindOf(a.name) ? '' : ' · download'}</span>
               </a>
             )}
             <div className="attachment-actions reveal">
@@ -229,6 +232,8 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
           }}
         />
       </div>
+
+      {previewing && <FileViewer file={previewing} onClose={() => setPreviewing(null)} />}
 
       {viewing && (
         <div className="lightbox" onClick={() => setViewing(null)} role="dialog" aria-label={viewing.name}>

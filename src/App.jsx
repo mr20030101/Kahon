@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { WorkspaceProvider } from './context/WorkspaceContext';
 import Footer from './components/Footer';
+import UpdateBanner from './components/UpdateBanner';
 import Sidebar from './components/Sidebar';
 import { Icon, Lockup, Logo } from './components/ui';
 import Login from './pages/Login';
@@ -33,7 +34,7 @@ function Shell() {
             <Route path="/p/:projectId" element={<ProjectPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-          <Footer />
+          <Footer releaseNotes />
         </main>
       </div>
     </WorkspaceProvider>
@@ -57,6 +58,7 @@ export default function App() {
       <ToastProvider>
         <AuthProvider>
           <Shell />
+          <UpdateBanner />
         </AuthProvider>
       </ToastProvider>
     </BrowserRouter>

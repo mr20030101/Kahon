@@ -97,6 +97,29 @@ Kahon sends two kinds of email, both through [Resend](https://resend.com) (free 
 
 `APP_URL` is used for the links and logo in emails. To test locally before deploying, set it to `http://localhost:5173`. If the function isn't deployed, the app keeps working and only logs a warning in the browser console.
 
+## Releasing
+
+The version lives in `package.json` and shows in the footer; clicking it inside the app opens
+**What's new**, built from `CHANGELOG.md`.
+
+1. As you make changes, describe them under **Unreleased** in `CHANGELOG.md`, grouped under
+   `### Added`, `### Changed` or `### Fixed`.
+2. Cut the release, picking the part to bump:
+   - `npm run release -- patch` for fixes only (1.0.0 → 1.0.1)
+   - `npm run release -- minor` for new features (1.0.0 → 1.1.0)
+   - `npm run release -- major` for changes to how existing features work (1.0.0 → 2.0.0)
+
+   This bumps `package.json` and `package-lock.json` and moves the Unreleased notes under the
+   new version and today's date. It refuses to run with nothing under Unreleased.
+3. Commit, tag and push:
+   ```bash
+   git commit -am "Release vX.Y.Z: short summary" && git tag vX.Y.Z
+   git push && git push --tags
+   ```
+
+Every build writes `/version.json`. Tabs already open when a newer version is deployed show a
+banner offering to reload.
+
 ## Project structure
 
 ```
@@ -104,6 +127,8 @@ supabase/schema.sql        Tables, RLS policies, RPC functions, realtime
 supabase/migrations/       Changes to run on an existing database
 supabase/functions/notify  Edge Function that sends notification emails
 supabase/templates/        Supabase Auth email templates
+scripts/release.mjs        Bumps the version and files the changelog (npm run release)
+CHANGELOG.md               What changed in each release
 src/
   lib/                     Supabase client, dates, ordering helpers
   context/                 Auth, workspace (project list), toasts

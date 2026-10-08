@@ -212,6 +212,26 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-
 /* ============ Footer ============ */
 .app-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px clamp(16px, 3.5vw, 44px); border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-3); }
 .app-version { font-variant-numeric: tabular-nums; }
+.link-like { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+.link-like:hover { color: var(--ink-2); text-decoration: underline; }
+
+/* ============ What's new / update banner (Footer.jsx, UpdateBanner.jsx) ============ */
+.whats-new { display: grid; gap: 22px; max-height: 70vh; overflow-y: auto; padding-right: 4px; font-size: 14px; }
+.whats-new p { margin: 0 0 8px; }
+.release-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.release-head h3 { font-size: 16px; font-variant-numeric: tabular-nums; }
+.release-current { font-size: 12px; font-weight: 600; color: var(--primary); }
+.release-group { margin-bottom: 10px; }
+.release-group-title { font-weight: 600; margin-bottom: 4px !important; }
+.release-group ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; color: var(--ink-2); }
+.release-group strong { color: var(--ink); }
+.update-banner {
+  position: fixed; left: 0; right: 0; bottom: 18px; margin: 0 auto; z-index: 75;
+  display: flex; align-items: center; gap: 10px; width: min(460px, calc(100vw - 32px));
+  padding: 10px 10px 10px 16px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lift); font-size: 14px;
+  animation: slide-up 0.2s ease-out;
+}
 .auth-footer { position: absolute; left: 0; right: 0; bottom: 0; border-top: 0; padding: 18px clamp(24px, 6vw, 80px); }
 
 /* ============ Layout ============ */
@@ -470,6 +490,17 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .comment-actions { display: flex; align-items: center; justify-content: space-between; }
 .created-line { margin-top: 26px; }
 
+.ask-ai .panel-h svg { color: var(--primary); }
+.ask-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.btn-small { height: 30px; padding: 0 11px; font-size: 13px; }
+.ask-form { display: flex; gap: 8px; }
+.ask-form .input { flex: 1; min-width: 0; height: 36px; }
+.ask-answer { margin-top: 10px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); border-left: 3px solid var(--mango); display: grid; gap: 8px; }
+.ask-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.55; }
+.ask-text .caret { height: 1em; }
+.ask-answer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ask-ai .hint { margin: 8px 0 0; }
+
 .attachments { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; padding: 4px; margin: -4px; border-radius: 10px; transition: background 0.15s, box-shadow 0.15s; }
 .attachment { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: 8px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); }
 .attachment-thumb { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
@@ -505,6 +536,15 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 }
 .panel-drop svg { width: 34px; height: 34px; color: var(--primary); }
 .panel-drop strong { font-family: var(--font-display); font-size: 18px; }
+
+.viewer { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; background: rgba(8, 24, 14, 0.86); padding: 16px; gap: 10px; }
+.viewer-bar { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 14px; }
+.viewer-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.viewer-body { position: relative; flex: 1; min-height: 0; border-radius: 10px; overflow: hidden; background: #E9EEEA; }
+.viewer-frame { display: block; width: 100%; height: 100%; border: 0; background: #E9EEEA; }
+.viewer-status { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; background: #E9EEEA; color: #4A6B56; font-size: 14px; }
+.viewer-status p { margin: 0; }
+@media (max-width: 760px) { .viewer { padding: 0; gap: 0; } .viewer-bar, .viewer-body { border-radius: 0; } }
 
 .lightbox { position: fixed; inset: 0; z-index: 70; background: rgba(8, 24, 14, 0.86); display: grid; grid-template-rows: 1fr auto; place-items: center; padding: 24px; cursor: zoom-out; }
 .lightbox img { max-width: 100%; max-height: calc(100vh - 120px); object-fit: contain; border-radius: 6px; cursor: default; }

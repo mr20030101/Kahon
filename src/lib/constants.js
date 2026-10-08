@@ -7,5 +7,3 @@ export const PRIORITIES = [
 ];
 
 export const APP_OWNER = 'Shean Louise Margallo';
-// Injected from package.json by vite.config.js
-export const APP_VERSION = __APP_VERSION__;

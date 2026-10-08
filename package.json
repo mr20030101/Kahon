@@ -1,12 +1,13 @@
 {
   "name": "kahon",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -14,10 +15,13 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.45.4",
     "animejs": "^4.5.0",
+    "docx-preview": "^0.4.1",
+    "pptx-preview": "^1.0.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
-    "sweetalert2": "^11.26.25"
+    "sweetalert2": "^11.26.25",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
