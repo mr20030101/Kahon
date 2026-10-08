@@ -1,0 +1,73 @@
+{
+  "name": "Kahon",
+  "slug": "kahon",
+  "colors": {
+    "ink": "#13341F",
+    "sub": "#4A6B56",
+    "accent": "#3DBE6B",
+    "accent_text": "#15703C",
+    "light": "#F4F8F5",
+    "mist": "#D3E2D8",
+    "shade": "#0C2415"
+  },
+  "wordmark": {
+    "primary": {
+      "text": "Kahon",
+      "family": "plus-jakarta-sans",
+      "weight": 800,
+      "size": 62,
+      "tracking": -0.03
+    }
+  },
+  "lockup_mark_height": 74,
+  "mark": {
+    "viewBox": 120,
+    "bounds": [
+      16,
+      14,
+      88,
+      93
+    ],
+    "elements": [
+      {
+        "d": "M60 14 L104 39.4 L104 81.4 L60 106.8 L16 81.4 L16 39.4 Z",
+        "role": "body"
+      },
+      {
+        "d": "M60 64.8 L60 106.8 L16 81.4 L16 39.4 Z",
+        "role": "shade"
+      },
+      {
+        "d": "M60 14 L104 39.4 L60 64.8 L16 39.4 Z",
+        "role": "accent"
+      }
+    ],
+    "mono": "M60 14 L104 39.4 L104 81.4 L60 106.8 L16 81.4 L16 39.4 Z M60 14 L104 39.4 L60 64.8 L16 39.4 Z M58.4 64.8 L61.6 64.8 L61.6 106.8 L58.4 106.8 Z",
+    "small": [
+      {
+        "d": "M60 14 L104 39.4 L104 81.4 L60 106.8 L16 81.4 L16 39.4 Z",
+        "role": "body"
+      },
+      {
+        "d": "M60 14 L104 39.4 L60 64.8 L16 39.4 Z",
+        "role": "accent"
+      }
+    ]
+  },
+  "pattern": {
+    "tile": 120,
+    "motif_width": 32,
+    "slant": -15,
+    "spots": [
+      [
+        30,
+        30
+      ],
+      [
+        90,
+        90
+      ]
+    ],
+    "path": "M60 14 L104 39.4 L104 81.4 L60 106.8 L16 81.4 L16 39.4 Z M60 14 L104 39.4 L60 64.8 L16 39.4 Z M60 17.05 L98.72 39.4 L60 61.75 L21.28 39.4 Z"
+  }
+}
