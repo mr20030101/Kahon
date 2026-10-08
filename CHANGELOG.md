@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 0.4.0 — 2026-10-08
+
 ### Added
 
 - **Forgot password** on the sign-in page: get an email link and set a new password.
