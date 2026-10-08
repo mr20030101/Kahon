@@ -95,6 +95,11 @@ export function useProject(projectId) {
 
   const updateTask = useCallback(async (id, patch) => {
     upsert('tasks', { id, ...patch });
+    // The database completes subtasks along with their parent; show it right away.
+    if (patch.completed === true) {
+      ref.current.tasks.filter((t) => t.parent_id === id && !t.completed)
+        .forEach((t) => upsert('tasks', { id: t.id, completed: true }));
+    }
     const { error } = await supabase.from('tasks').update(patch).eq('id', id);
     if (error) fail(error);
     else if (patch.assignee_id) notify('task_assigned', { task_id: id });

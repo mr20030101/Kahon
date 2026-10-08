@@ -103,6 +103,11 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const save = async (patch) => {
     setTask((cur) => ({ ...cur, ...patch }));
     onPatch?.(taskId, patch);
+    // The database completes subtasks along with their parent; show it right away.
+    if (patch.completed === true) {
+      subtasks.filter((s) => !s.completed).forEach((s) => onPatch?.(s.id, { completed: true }));
+      setSubtasks((list) => list.map((s) => ({ ...s, completed: true })));
+    }
     const { error } = await supabase.from('tasks').update(patch).eq('id', taskId);
     if (error) toast(`Could not save: ${error.message}`, 'error');
     else if (patch.assignee_id) notify('task_assigned', { task_id: taskId });

@@ -58,6 +58,19 @@ Deno.serve(async (req) => {
 });
 
 const HANDLERS = {
+  // {}: a sample email to the caller's own address, to check delivery end to end.
+  async test(admin: Admin, actorId: string) {
+    const { data: me } = await admin.from('profiles').select('id, email, full_name').eq('id', actorId).single();
+    if (!me?.email) return 0;
+    return deliver(admin, me, 'test', me.id, {
+      subject: 'Kahon test email',
+      heading: 'Email is working',
+      intro: `Hi ${me.full_name || 'there'}, this is a test from Kahon. If you can read this, notification emails are set up correctly.`,
+      cta: 'Open Kahon',
+      url: APP_URL || 'https://resend.com',
+    }, 1); // test sends may repeat after a minute
+  },
+
   // { task_id }: email the task's assignee.
   async task_assigned(admin: Admin, actorId: string, { task_id }: { task_id?: string }) {
     const task = await getTask(admin, task_id);
@@ -143,34 +156,43 @@ async function send(admin: Admin, opts: {
 }) {
   const ids = [...new Set(opts.recipientIds.filter((id): id is string => !!id && id !== opts.actorId))];
   if (!ids.length) return 0;
-  if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');
-
   const { data: people } = await admin.from('profiles')
     .select('id, email, full_name, email_notifications').in('id', [...ids, opts.actorId]);
   const actor = people?.find((p) => p.id === opts.actorId);
   const email = opts.build(actor?.full_name || actor?.email || 'Someone');
-  const since = new Date(Date.now() - DEDUPE_MINUTES * 60_000).toISOString();
 
   let sent = 0;
   for (const person of people ?? []) {
     if (!ids.includes(person.id) || !person.email || !person.email_notifications) continue;
-    const { count } = await admin.from('email_log').select('id', { count: 'exact', head: true })
-      .eq('kind', opts.kind).eq('ref_id', opts.refId).eq('recipient_id', person.id).gte('sent_at', since);
-    if (count) continue;
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: EMAIL_FROM, to: [person.email], subject: email.subject, html: renderHtml(email), text: renderText(email) }),
-    });
-    if (!res.ok) {
-      console.error('Resend error', res.status, await res.text());
-      continue;
+    try {
+      sent += await deliver(admin, person, opts.kind, opts.refId, email);
+    } catch (err) {
+      console.error(err); // one failed recipient shouldn't stop the rest
     }
-    await admin.from('email_log').insert({ kind: opts.kind, ref_id: opts.refId, recipient_id: person.id });
-    sent += 1;
   }
   return sent;
+}
+
+// Sends one email unless the same kind/item/person was sent inside the dedupe
+// window, then logs it. Returns 1 when sent, 0 when skipped.
+async function deliver(
+  admin: Admin, person: { id: string; email: string }, kind: string, refId: string, email: Email,
+  dedupeMinutes = DEDUPE_MINUTES,
+) {
+  if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');
+  const since = new Date(Date.now() - dedupeMinutes * 60_000).toISOString();
+  const { count } = await admin.from('email_log').select('id', { count: 'exact', head: true })
+    .eq('kind', kind).eq('ref_id', refId).eq('recipient_id', person.id).gte('sent_at', since);
+  if (count) return 0;
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: EMAIL_FROM, to: [person.email], subject: email.subject, html: renderHtml(email), text: renderText(email) }),
+  });
+  if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+  await admin.from('email_log').insert({ kind, ref_id: refId, recipient_id: person.id });
+  return 1;
 }
 
 const esc = (s: string) =>

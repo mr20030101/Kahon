@@ -54,6 +54,26 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
     }
   };
 
+  const ownerCount = members.filter((m) => m.role === 'owner').length;
+
+  const changeRole = async (member, role) => {
+    const self = member.user_id === user.id;
+    const name = member.profile?.full_name || member.profile?.email || 'this person';
+    const ok = await confirmDialog(role === 'owner'
+      ? { title: `Make ${name} an owner?`, text: `Owners can add and remove members, change roles, rename ${project.name} and delete it.`, confirmText: 'Make owner' }
+      : self
+        ? { title: 'Step down as owner?', text: `You'll stay in ${project.name} as a member, but can no longer manage it.`, confirmText: 'Step down', danger: true }
+        : { title: `Make ${name} a member?`, text: `They'll stay in ${project.name} but can no longer manage it.`, confirmText: 'Make member', danger: true });
+    if (!ok) return;
+    const { error: err } = await supabase.rpc('set_member_role', { p_project: project.id, p_user: member.user_id, p_role: role });
+    if (err) {
+      toast(err.message, 'error');
+      return;
+    }
+    toast(role === 'owner' ? `${name} is now an owner` : self ? 'You are now a member' : `${name} is now a member`);
+    onChanged();
+  };
+
   const sorted = [...members].sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0));
 
   return (
@@ -75,7 +95,19 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
               <strong>{m.profile?.full_name}{m.user_id === user.id ? ' (you)' : ''}</strong>
               <span className="muted small">{m.profile?.email}</span>
             </div>
-            <span className="role">{m.role === 'owner' ? 'Owner' : 'Member'}</span>
+            {isOwner ? (
+              <label className="field-select role-select" title={m.role === 'owner' && ownerCount === 1 ? 'A project needs at least one owner' : undefined}>
+                <span>{m.role === 'owner' ? 'Owner' : 'Member'}</span>
+                <select value={m.role} aria-label={`Role for ${m.profile?.full_name || 'member'}`}
+                  disabled={m.role === 'owner' && ownerCount === 1}
+                  onChange={(e) => changeRole(m, e.target.value)}>
+                  <option value="owner">Owner</option>
+                  <option value="member">Member</option>
+                </select>
+              </label>
+            ) : (
+              <span className="role">{m.role === 'owner' ? 'Owner' : 'Member'}</span>
+            )}
             {m.role !== 'owner' && (isOwner || m.user_id === user.id) && (
               <button className="icon-btn" onClick={() => removeMember(m)}
                 aria-label={m.user_id === user.id ? 'Leave project' : 'Remove member'}
