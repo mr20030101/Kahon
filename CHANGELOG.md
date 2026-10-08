@@ -35,7 +35,7 @@ before versioning was set up shipped as 0.1.0.
 - **Edit comments** you wrote.
 - **Formatting** in descriptions and comments: **bold**, *italic*, `code`, lists and links.
 - **Light or dark theme** in Settings → Display, or follow your device.
-- **Ask AI reads attachments**: the text of Word, Excel, PowerPoint, PDF and text files attached to the task (not images).
+- **Ask AI reads attachments**: the text of Word (.docx), Excel (.xlsx), OpenDocument spreadsheets, PowerPoint (.pptx), PDF and text files attached to the task (not images or older .doc/.xls/.ppt files).
 
 ### Fixed
 
