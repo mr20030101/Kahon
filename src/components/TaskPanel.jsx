@@ -450,10 +450,10 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                       <strong>{c.author?.full_name || 'Someone'}</strong>
                       <span className="muted small">{timeAgo(c.created_at)}{c.edited_at ? ' · edited' : ''}</span>
                       {c.author_id === user.id && editingComment !== c.id && (
-                        <>
+                        <span className="comment-tools">
                           <button className="link-btn" onClick={() => setEditingComment(c.id)}>Edit</button>
                           <button className="link-btn" onClick={() => deleteComment(c)}>Delete</button>
-                        </>
+                        </span>
                       )}
                     </div>
                     {editingComment === c.id ? (

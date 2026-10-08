@@ -543,17 +543,20 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .subtasks li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .subtasks li.is-done .grow { color: var(--ink-3); text-decoration: line-through; }
 .comments { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 14px; }
-.comments li { display: flex; gap: 10px; }
+.comments > li { display: flex; gap: 10px; }
 .comment-body { flex: 1; min-width: 0; }
 .comment-head { display: flex; align-items: baseline; gap: 8px; }
 .comment-head strong { font-size: 14px; }
-.comment-head .link-btn { margin-left: auto; font-weight: 500; color: var(--ink-3); }
+.comment-tools { display: flex; gap: 12px; margin-left: auto; }
+.comment-tools .link-btn { font-weight: 500; color: var(--ink-3); }
+.comment-tools .link-btn:hover { color: var(--ink); }
 .comment-body p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-box { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--surface); }
 .comment-box:focus-within { border-color: var(--primary); }
 .comment-box textarea { width: 100%; border: 0; resize: vertical; background: transparent; padding: 4px; min-height: 44px; }
 .comment-box textarea:focus { outline: none; }
-.comment-actions { display: flex; align-items: center; justify-content: space-between; }
+.comment-actions { display: flex; align-items: center; gap: 12px; }
+.comment-actions .hint { margin-right: auto; }
 .created-line { margin-top: 26px; }
 
 .ask-ai .panel-h svg { color: var(--primary); }
@@ -565,6 +568,7 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .ask-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.55; }
 .ask-text .caret { height: 1em; }
 .ask-answer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ask-answer > .link-btn { justify-self: start; }
 .ask-ai .hint { margin: 8px 0 0; }
 
 .attachments { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; padding: 4px; margin: -4px; border-radius: 10px; transition: background 0.15s, box-shadow 0.15s; }

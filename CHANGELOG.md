@@ -14,6 +14,14 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 0.4.1 — 2026-10-08
+
+### Fixed
+
+- Lists in comments (like an Ask AI answer posted as a comment) no longer squeeze their text into a narrow column.
+- **Edit** and **Delete** on a comment sit together, as do **Cancel** and **Save** while editing one.
+- Ask AI's **Stop** button no longer stretches across the answer box.
+
 ## 0.4.0 — 2026-10-08
 
 ### Added
