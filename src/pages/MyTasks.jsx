@@ -24,14 +24,24 @@ export default function MyTasks() {
   const [showDone, setShowDone] = useState(false);
   const openId = params.get('task');
 
+  // Tasks you're the main assignee of, plus those you're also assigned to.
   const load = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*, project:projects(id, name, color)')
-      .eq('assignee_id', user.id)
-      .order('due_date', { ascending: true, nullsFirst: false });
+    const select = '*, project:projects(id, name, color, archived_at)';
+    const { data: extra } = await supabase.from('task_assignees').select('task_id').eq('user_id', user.id);
+    const extraIds = (extra || []).map((r) => r.task_id);
+    const [main, also] = await Promise.all([
+      supabase.from('tasks').select(select).eq('assignee_id', user.id),
+      extraIds.length ? supabase.from('tasks').select(select).in('id', extraIds) : Promise.resolve({ data: [] }),
+    ]);
+    const error = main.error || also.error;
     if (error) toast(error.message, 'error');
-    else setTasks(data);
+    else {
+      const byId = new Map([...(main.data || []), ...(also.data || [])].map((t) => [t.id, t]));
+      const list = [...byId.values()]
+        .filter((t) => !t.project?.archived_at)
+        .sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'));
+      setTasks(list);
+    }
     setLoading(false);
   }, [user.id, toast]);
 
@@ -40,6 +50,7 @@ export default function MyTasks() {
     const channel = supabase
       .channel(`mytasks-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `assignee_id=eq.${user.id}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees', filter: `user_id=eq.${user.id}` }, load)
       .subscribe();
     window.addEventListener('focus', load);
     return () => {

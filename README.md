@@ -97,6 +97,39 @@ Kahon sends two kinds of email, both through [Resend](https://resend.com) (free 
 
 `APP_URL` is used for the links and logo in emails. To test locally before deploying, set it to `http://localhost:5173`. If the function isn't deployed, the app keeps working and only logs a warning in the browser console.
 
+## 6. Optional setup
+
+### Sign in with Google
+
+1. In Google Cloud Console, create an OAuth client (type **Web application**) and add
+   `https://<your-project-ref>.supabase.co/auth/v1/callback` as an authorized redirect URI.
+2. Supabase → **Authentication → Sign In / Providers → Google**: turn it on and paste the client ID and secret.
+3. Set `VITE_GOOGLE_SIGNIN=true` in `.env.local` and in Vercel's environment variables, then redeploy.
+
+### Due-date reminders
+
+The feature-pack migration schedules a daily job (01:00 UTC) with `pg_cron` that calls the
+`reminders` Edge Function. Deploy it without JWT checks, since the job authenticates with a
+secret kept in Supabase Vault instead:
+
+```bash
+npx supabase functions deploy reminders --no-verify-jwt
+```
+
+### Error log
+
+Errors people hit in their browser are recorded in the `client_errors` table. Read them in
+the Supabase dashboard (**Table Editor → client_errors**); they aren't readable through the app.
+
+## Tests
+
+```bash
+npm test
+```
+
+Unit tests cover the logic that's easy to break quietly: rich text and @mentions, search and
+filters, drag-and-drop ordering, version comparison, changelog parsing and the calendar grid.
+
 ## Releasing
 
 The version lives in `package.json` and shows in the footer; clicking it inside the app opens

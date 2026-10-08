@@ -6,7 +6,10 @@ import { removeAttachmentFiles } from '../components/Attachments';
 import { notify } from '../lib/notify';
 import { PROFILE_BRIEF } from '../lib/profiles';
 
-const EMPTY = { loading: true, error: null, project: null, sections: [], tasks: [], members: [] };
+const EMPTY = {
+  loading: true, error: null, project: null, sections: [], tasks: [], members: [],
+  labels: [], taskLabels: [], extraAssignees: [],
+};
 
 const MEMBER_SELECT = `role, user_id, profile:profiles(${PROFILE_BRIEF})`;
 
@@ -33,7 +36,24 @@ export function useProject(projectId) {
       setState({ ...EMPTY, loading: false, error: 'not-found' });
       return;
     }
-    setState({ loading: false, error: null, project: p.data, sections: s.data, tasks: t.data, members: m.data });
+    setState((st) => ({ ...st, loading: false, error: null, project: p.data, sections: s.data, tasks: t.data, members: m.data }));
+    loadLinks();
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Labels, which tasks carry them, and extra assignees. Loaded and refreshed separately
+  // because their change events can't be filtered by project.
+  const loadLinks = useCallback(async () => {
+    const [l, tl, ta] = await Promise.all([
+      supabase.from('project_labels').select('*').eq('project_id', projectId).order('name'),
+      supabase.from('task_labels').select('task_id, label_id, label:project_labels!inner(project_id)').eq('label.project_id', projectId),
+      supabase.from('task_assignees').select('task_id, user_id, task:tasks!inner(project_id)').eq('task.project_id', projectId),
+    ]);
+    setState((st) => ({
+      ...st,
+      labels: l.data || [],
+      taskLabels: (tl.data || []).map(({ task_id, label_id }) => ({ task_id, label_id })),
+      extraAssignees: (ta.data || []).map(({ task_id, user_id }) => ({ task_id, user_id })),
+    }));
   }, [projectId]);
 
   const upsert = useCallback((key, row) => {
@@ -56,6 +76,11 @@ export function useProject(projectId) {
       else upsert(key, row);
     };
     const reloadQuiet = () => load(true);
+    let linksTimer;
+    const reloadLinks = () => {
+      clearTimeout(linksTimer);
+      linksTimer = setTimeout(loadLinks, 150);
+    };
 
     const channel = supabase
       .channel(`project-${projectId}`)
@@ -66,14 +91,18 @@ export function useProject(projectId) {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sections', filter: `project_id=eq.${projectId}` }, onRow('sections'))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'sections' }, onRow('sections'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'project_members', filter: `project_id=eq.${projectId}` }, reloadQuiet)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_labels', filter: `project_id=eq.${projectId}` }, reloadLinks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_labels' }, reloadLinks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, reloadLinks)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects', filter: `id=eq.${projectId}` }, ({ new: row }) =>
         setState((st) => ({ ...st, project: { ...st.project, ...row } })))
       .subscribe();
 
     return () => {
+      clearTimeout(linksTimer);
       supabase.removeChannel(channel);
     };
-  }, [projectId, load, upsert, remove]);
+  }, [projectId, load, loadLinks, upsert, remove]);
 
   const fail = useCallback((error) => {
     toast(error?.message || 'That change did not save. Showing the latest data.', 'error');
@@ -162,13 +191,77 @@ export function useProject(projectId) {
     return true;
   }, [projectId, fail]);
 
+  // ---------- Bulk ----------
+  const bulkUpdate = useCallback(async (ids, patch) => {
+    ids.forEach((id) => upsert('tasks', { id, ...patch }));
+    const { error } = await supabase.from('tasks').update(patch).in('id', ids);
+    if (error) fail(error);
+    else if (patch.assignee_id) ids.forEach((id) => notify('task_assigned', { task_id: id }));
+  }, [fail, upsert]);
+
+  const bulkDelete = useCallback(async (ids) => {
+    const all = ref.current.tasks.filter((t) => ids.includes(t.id) || ids.includes(t.parent_id)).map((t) => t.id);
+    all.forEach((id) => remove('tasks', id));
+    await removeAttachmentFiles({ taskIds: all });
+    const { error } = await supabase.from('tasks').delete().in('id', ids);
+    if (error) fail(error);
+  }, [fail, remove]);
+
+  // ---------- Labels ----------
+  const createLabel = useCallback(async (name, color) => {
+    const { data, error } = await supabase.from('project_labels')
+      .insert({ project_id: projectId, name: name.trim(), color }).select().single();
+    if (error) {
+      toast(error.code === '23505' ? 'There is already a label with that name' : error.message, 'error');
+      return null;
+    }
+    setState((st) => ({ ...st, labels: [...st.labels, data].sort((a, b) => a.name.localeCompare(b.name)) }));
+    return data;
+  }, [projectId, toast]);
+
+  const updateLabel = useCallback(async (id, patch) => {
+    setState((st) => ({ ...st, labels: st.labels.map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
+    const { error } = await supabase.from('project_labels').update(patch).eq('id', id);
+    if (error) fail(error);
+  }, [fail]);
+
+  const deleteLabel = useCallback(async (id) => {
+    setState((st) => ({
+      ...st,
+      labels: st.labels.filter((l) => l.id !== id),
+      taskLabels: st.taskLabels.filter((tl) => tl.label_id !== id),
+    }));
+    const { error } = await supabase.from('project_labels').delete().eq('id', id);
+    if (error) fail(error);
+  }, [fail]);
+
+  // ---------- Project lifecycle ----------
+  const setArchived = useCallback(async (archived) => {
+    const archived_at = archived ? new Date().toISOString() : null;
+    setState((st) => ({ ...st, project: { ...st.project, archived_at } }));
+    const { error } = await supabase.from('projects').update({ archived_at }).eq('id', projectId);
+    if (error) fail(error);
+    return !error;
+  }, [projectId, fail]);
+
+  const duplicateProject = useCallback(async (name) => {
+    const { data, error } = await supabase.rpc('duplicate_project', { p_project: projectId, p_name: name });
+    if (error) {
+      toast(error.message, 'error');
+      return null;
+    }
+    return data;
+  }, [projectId, toast]);
+
   return {
     ...state,
     reload: () => load(true),
     actions: {
       createTask, updateTask, patchLocal, removeLocal,
       createSection, renameSection, moveSection, deleteSection,
-      updateProject, deleteProject,
+      updateProject, deleteProject, setArchived, duplicateProject,
+      bulkUpdate, bulkDelete,
+      createLabel, updateLabel, deleteLabel,
     },
   };
 }

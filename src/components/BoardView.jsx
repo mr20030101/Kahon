@@ -6,16 +6,18 @@ import { byPosition } from '../lib/position';
 import { lift, settle } from '../lib/motion';
 import { columnDndId, dropPosition, sectionDndId, taskDrop, typedCollisions, useDndSensors } from '../lib/dnd';
 import { subtaskCounts } from './ListView';
+import { LabelChips } from './LabelsModal';
 import { Avatar, Check, DueLabel, EditableText, Icon, InlineAdd, PriorityTag } from './ui';
 import { confirmDialog } from '../lib/dialog';
 
-export default function BoardView({ sections, tasks, members, hideCompleted, actions, onOpen }) {
+export default function BoardView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask }) {
   const [active, setActive] = useState(null);
   const boardRef = useRef(null);
   const counts = useMemo(() => subtaskCounts(tasks), [tasks]);
   const memberById = useMemo(() => Object.fromEntries(members.map((m) => [m.user_id, m.profile])), [members]);
   const top = tasks.filter((t) => !t.parent_id && !(hideCompleted && t.completed));
   const sensors = useDndSensors();
+  const deco = { labels, labelsByTask, extrasByTask };
 
   // The board has no visible scrollbar: a vertical wheel over empty board space scrolls
   // sideways. Inside a column the wheel still scrolls that column's cards.
@@ -63,7 +65,7 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
       <div className="board" ref={boardRef}>
         <SortableContext items={sections.map((s) => sectionDndId(s.id))} strategy={horizontalListSortingStrategy}>
           {sections.map((s) => (
-            <Column key={s.id} section={s} tasks={columnTasks(s.id)} counts={counts} memberById={memberById}
+            <Column key={s.id} section={s} tasks={columnTasks(s.id)} counts={counts} memberById={memberById} deco={deco}
               actions={actions} onOpen={onOpen} />
           ))}
         </SortableContext>
@@ -72,7 +74,7 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
         </div>
       </div>
       <DragOverlay dropAnimation={{ duration: 180 }}>
-        {activeTask && <CardBody task={activeTask} count={counts[activeTask.id]} memberById={memberById} lifted />}
+        {activeTask && <CardBody task={activeTask} count={counts[activeTask.id]} memberById={memberById} deco={deco} lifted />}
         {activeSection && (
           <LiftedColumn>
             <header className="column-head">
@@ -87,7 +89,7 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
   );
 }
 
-function Column({ section, tasks, counts, memberById, actions, onOpen }) {
+function Column({ section, tasks, counts, memberById, deco, actions, onOpen }) {
   const sortable = useSortable({ id: sectionDndId(section.id), data: { type: 'section', sectionId: section.id } });
   const { setNodeRef, isOver } = useDroppable({ id: columnDndId(section.id), data: { type: 'column', sectionId: section.id } });
   const style = { transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition };
@@ -119,7 +121,7 @@ function Column({ section, tasks, counts, memberById, actions, onOpen }) {
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className="column-body" data-settle={sectionDndId(section.id)}>
           {tasks.map((t) => (
-            <SortableCard key={t.id} task={t} count={counts[t.id]} memberById={memberById} actions={actions} onOpen={onOpen} />
+            <SortableCard key={t.id} task={t} count={counts[t.id]} memberById={memberById} deco={deco} actions={actions} onOpen={onOpen} />
           ))}
           {tasks.length === 0 && <p className="column-empty">Drop tasks here</p>}
         </div>
@@ -130,7 +132,7 @@ function Column({ section, tasks, counts, memberById, actions, onOpen }) {
   );
 }
 
-function SortableCard({ task, count, memberById, actions, onOpen }) {
+function SortableCard({ task, count, memberById, deco, actions, onOpen }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, data: { type: 'task', task } });
   const style = { transform: CSS.Transform.toString(transform), transition };
   return (
@@ -141,7 +143,7 @@ function SortableCard({ task, count, memberById, actions, onOpen }) {
         if (e.key === 'Enter') onOpen(task.id);
         listeners?.onKeyDown?.(e);
       }}>
-      <CardBody task={task} count={count} memberById={memberById}
+      <CardBody task={task} count={count} memberById={memberById} deco={deco}
         onToggle={(v) => actions.updateTask(task.id, { completed: v })} />
     </div>
   );
@@ -153,9 +155,11 @@ function LiftedColumn({ children }) {
   return <section ref={ref} className="column is-lifted">{children}</section>;
 }
 
-function CardBody({ task, count, memberById, onToggle, lifted }) {
+function CardBody({ task, count, memberById, deco, onToggle, lifted }) {
   const ref = useRef(null);
   const assignee = memberById[task.assignee_id];
+  const extras = (deco?.extrasByTask?.get(task.id) ?? []).map((id) => memberById[id]).filter(Boolean);
+  const labelIds = deco?.labelsByTask?.get(task.id);
   useEffect(() => {
     if (lifted) lift(ref.current);
   }, [lifted]);
@@ -165,13 +169,19 @@ function CardBody({ task, count, memberById, onToggle, lifted }) {
         <Check checked={task.completed} onChange={onToggle || (() => {})} />
         <p className="card-title">{task.title}</p>
       </div>
-      {(task.priority || task.due_date || count || assignee) && (
+      {labelIds?.length > 0 && <LabelChips ids={labelIds} labels={deco.labels} />}
+      {(task.priority || task.due_date || count || assignee || extras.length > 0 || task.recurrence) && (
         <div className="card-meta">
           <PriorityTag value={task.priority} />
           <DueLabel value={task.due_date} completed={task.completed} />
+          {task.recurrence && <span className="mini-count" title={`Repeats ${task.recurrence}`}><Icon.repeat width="14" height="14" /></span>}
           {count && <span className="mini-count"><Icon.subtasks width="14" height="14" /> {count.done}/{count.total}</span>}
           <span className="spacer" />
-          {assignee && <Avatar profile={assignee} size={22} />}
+          <span className="avatar-row">
+            {assignee && <Avatar profile={assignee} size={22} />}
+            {extras.slice(0, 2).map((p) => <Avatar key={p.id} profile={p} size={22} />)}
+            {extras.length > 2 && <span className="avatar more" style={{ width: 22, height: 22 }}>+{extras.length - 2}</span>}
+          </span>
         </div>
       )}
     </article>

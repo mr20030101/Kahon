@@ -12,7 +12,7 @@ export function WorkspaceProvider({ children }) {
   const refreshProjects = useCallback(async () => {
     const { data, error } = await supabase
       .from('projects')
-      .select('id, name, color, owner_id, created_at')
+      .select('id, name, color, owner_id, created_at, archived_at')
       .order('created_at');
     if (!error) setProjects(data);
     setLoaded(true);

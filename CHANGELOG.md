@@ -14,6 +14,34 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- **Forgot password** on the sign-in page: get an email link and set a new password.
+- **Invite by email**: add anyone to a project, even without a Kahon account. They get an invitation email and join the project automatically when they sign up. Owners can resend or cancel invitations from the members list.
+- **Sign in with Google**, once it's switched on for the workspace.
+- **Search and filters** on every project: search titles, descriptions and subtasks, and filter by assignee, priority, due date and labels.
+- **Labels**: create colored labels for a project (⋯ → Labels), add them to tasks, and see them on cards and rows.
+- **More than one assignee**: add people under **Also assigned**. They see the task in My tasks and get notified like the main assignee.
+- **Repeating tasks**: set a task to repeat daily, on weekdays, weekly, monthly or yearly. Completing it creates the next one with the due date moved on.
+- **Bulk actions** in the List view: select tasks to complete, move, assign, date or delete them together.
+- **Subtask details**: give subtasks an assignee and due date right from the task, and open them by clicking their name.
+- **Duplicate and move tasks**: from a task's ⋯ menu, duplicate it (with subtasks and labels) or move it to another project (with subtasks, comments and attachments). Copy a link to a task too.
+- **Duplicate and archive projects**: copy a project's sections, labels and open tasks into a new one, or archive a project to tuck it away without deleting anything.
+- **Calendar view**: see a project's tasks by due date and drag them to another day.
+- **Inbox**: notifications in Kahon when you're assigned, mentioned, added to a project, get a comment on your task, or have something due. The sidebar shows how many are unread.
+- **@mentions** in comments: type @ to pick a teammate. They get notified in the Inbox and by email.
+- **Due-date reminders**: a morning email and Inbox notifications for tasks due today, due tomorrow or overdue.
+- **Activity history** on every task: who changed what, and when.
+- **Edit comments** you wrote.
+- **Formatting** in descriptions and comments: **bold**, *italic*, `code`, lists and links.
+- **Light or dark theme** in Settings → Display, or follow your device.
+- **Ask AI reads attachments**: the text of Word, Excel, PowerPoint, PDF and text files attached to the task (not images).
+
+### Fixed
+
+- Notification emails and Ask AI now also require the two-factor code when it's turned on, like the rest of the app.
+- If Kahon hits an unexpected error, it shows a way to reload instead of a blank page, and the error is recorded so it can be fixed.
+
 ## 0.3.0 — 2026-10-08
 
 ### Added

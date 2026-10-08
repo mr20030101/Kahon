@@ -35,6 +35,10 @@ export default defineConfig({
       input: { main: page('./index.html'), viewer: page('./viewer.html') },
     },
   },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.js'],
+  },
   server: {
     // The preview iframe is sandboxed without allow-same-origin, so its script
     // requests come from origin "null" and need CORS. Same as vercel.json in production.

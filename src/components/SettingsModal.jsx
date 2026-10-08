@@ -5,12 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { confirmDialog, isDialogOpen } from '../lib/dialog';
+import { getTheme, setTheme } from '../lib/theme';
 import { AVATAR_COLORS, avatarUrl, removeAvatarFile, timeZones, uploadAvatar } from '../lib/profiles';
 import { Icon } from './ui';
 
 const SECTIONS = [
   { id: 'profile', label: 'Profile' },
   { id: 'notifications', label: 'Notifications' },
+  { id: 'display', label: 'Display' },
   { id: 'account', label: 'Account' },
 ];
 
@@ -46,6 +48,7 @@ export default function SettingsModal({ onClose, initialSection = 'profile' }) {
           <div className="settings-pane">
             {section === 'profile' && <ProfileSection />}
             {section === 'notifications' && <NotificationsSection />}
+            {section === 'display' && <DisplaySection />}
             {section === 'account' && <AccountSection />}
           </div>
         </div>
@@ -233,6 +236,37 @@ function NotificationsSection() {
           <span className="sr-only">Email notifications</span>
         </label>
       </div>
+    </div>
+  );
+}
+
+function DisplaySection() {
+  const [theme, setChoice] = useState(getTheme);
+  const choose = (value) => {
+    setChoice(value);
+    setTheme(value);
+  };
+  const options = [
+    { value: 'system', label: 'System', hint: 'Match your device' },
+    { value: 'light', label: 'Light', hint: 'Always light' },
+    { value: 'dark', label: 'Dark', hint: 'Always dark' },
+  ];
+  return (
+    <div className="settings-form">
+      <fieldset className="label">
+        <legend>Theme</legend>
+        <div className="theme-options" role="radiogroup">
+          {options.map((o) => (
+            <label key={o.value} className={`theme-option theme-${o.value}${theme === o.value ? ' is-on' : ''}`}>
+              <input type="radio" name="theme" value={o.value} checked={theme === o.value} onChange={() => choose(o.value)} />
+              <span className="theme-swatch" aria-hidden="true" />
+              <strong>{o.label}</strong>
+              <span className="muted small">{o.hint}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <p className="muted small">Saved in this browser.</p>
     </div>
   );
 }

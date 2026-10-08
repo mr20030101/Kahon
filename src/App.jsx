@@ -12,15 +12,18 @@ import Login from './pages/Login';
 import MyTasks from './pages/MyTasks';
 import ProjectPage from './pages/ProjectPage';
 import MfaChallenge from './pages/MfaChallenge';
+import ResetPassword from './pages/ResetPassword';
+import Inbox from './pages/Inbox';
 
 function Shell() {
-  const { session, loading, needsMfa } = useAuth();
+  const { session, loading, needsMfa, recovering } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
 
   if (loading) return <div className="splash"><Logo size={56} /></div>;
   if (!session) return <Login />;
   if (needsMfa === null) return <div className="splash"><Logo size={56} /></div>;
   if (needsMfa) return <MfaChallenge />;
+  if (recovering) return <ResetPassword />;
 
   return (
     <WorkspaceProvider>
@@ -34,6 +37,7 @@ function Shell() {
           </div>
           <Routes>
             <Route path="/" element={<MyTasks />} />
+            <Route path="/inbox" element={<Inbox />} />
             <Route path="/p/:projectId" element={<ProjectPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

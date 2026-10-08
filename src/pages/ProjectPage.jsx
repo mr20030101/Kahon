@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { useProject } from '../hooks/useProject';
 import { PROJECT_COLORS } from '../lib/constants';
 import BoardView from '../components/BoardView';
+import CalendarView from '../components/CalendarView';
+import FilterBar from '../components/FilterBar';
+import LabelsModal from '../components/LabelsModal';
+import { EMPTY_FILTERS, filterTasks, groupBy } from '../lib/filters';
 import ListView from '../components/ListView';
 import MembersModal from '../components/MembersModal';
 import ProjectDetails, { StatusPill } from '../components/ProjectDetails';
@@ -24,9 +28,21 @@ export default function ProjectPage() {
   const [showDetails, setShowDetails] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [hideCompleted, setHideCompleted] = useHiddenCompleted(projectId);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [showLabels, setShowLabels] = useState(false);
 
-  // Board is the default; ?view=list switches to the list. Old ?view=board links still work.
-  const view = params.get('view') === 'list' ? 'list' : 'board';
+  useEffect(() => setFilters(EMPTY_FILTERS), [projectId]);
+
+  // Board is the default; ?view=list or ?view=calendar switch. Old ?view=board links still work.
+  const view = ['list', 'calendar'].includes(params.get('view')) ? params.get('view') : 'board';
+
+  // Labels and extra assignees by task, for showing on cards and for filtering.
+  const labelsByTask = useMemo(() => groupBy(data.taskLabels, 'task_id', 'label_id'), [data.taskLabels]);
+  const extrasByTask = useMemo(() => groupBy(data.extraAssignees, 'task_id', 'user_id'), [data.extraAssignees]);
+  const shownTasks = useMemo(
+    () => filterTasks(data.tasks, filters, { me: user.id, extraAssignees: extrasByTask, taskLabels: labelsByTask }),
+    [data.tasks, filters, user.id, extrasByTask, labelsByTask],
+  );
   const openId = params.get('task');
 
   const setParam = (key, value) => {
@@ -57,7 +73,34 @@ export default function ProjectPage() {
     );
   }
 
-  const { project, sections, tasks, members, actions } = data;
+  const { project, sections, tasks, members, labels, actions } = data;
+  const matchCount = shownTasks.filter((t) => !t.parent_id && !(hideCompleted && t.completed)).length;
+  const viewProps = {
+    sections, tasks: shownTasks, members, hideCompleted, actions, onOpen: open,
+    labels, labelsByTask, extrasByTask,
+  };
+
+  const toggleArchive = async () => {
+    setShowMenu(false);
+    const archiving = !project.archived_at;
+    if (archiving) {
+      const ok = await confirmDialog({
+        title: `Archive "${project.name}"?`,
+        text: 'It moves to the Archived list in the sidebar and stops sending due-date reminders. Nothing is deleted, and you can restore it any time.',
+        confirmText: 'Archive project',
+      });
+      if (!ok) return;
+    }
+    if (await actions.setArchived(archiving)) refreshProjects();
+  };
+
+  const duplicate = async () => {
+    setShowMenu(false);
+    const id = await actions.duplicateProject(`${project.name} (copy)`);
+    if (!id) return;
+    await refreshProjects();
+    navigate(`/p/${id}`);
+  };
   const isOwner = members.some((m) => m.user_id === user.id && m.role === 'owner');
   const openTasks = tasks.filter((t) => !t.parent_id && !t.completed).length;
   const doneTasks = tasks.filter((t) => !t.parent_id && t.completed).length;
@@ -116,6 +159,9 @@ export default function ProjectPage() {
             <button role="tab" aria-selected={view === 'board'} className={view === 'board' ? 'is-on' : ''} onClick={() => setParam('view', null)}>
               <Icon.board /> Board
             </button>
+            <button role="tab" aria-selected={view === 'calendar'} className={view === 'calendar' ? 'is-on' : ''} onClick={() => setParam('view', 'calendar')}>
+              <Icon.calendar /> Calendar
+            </button>
           </div>
           {hideCompleted && (
             <button type="button" className="chip" onClick={() => setHideCompleted(false)} title="Show completed tasks">
@@ -144,6 +190,12 @@ export default function ProjectPage() {
                 <button className="menu-item" onClick={() => { setShowMenu(false); setShowDetails(true); }}>
                   <Icon.info /> Project details
                 </button>
+                <button className="menu-item" onClick={() => { setShowMenu(false); setShowLabels(true); }}>
+                  <Icon.tag /> Labels
+                </button>
+                <button className="menu-item" onClick={duplicate}>
+                  <Icon.copy /> Duplicate project
+                </button>
                 {isOwner && (
                   <>
                     <hr className="menu-sep" />
@@ -155,6 +207,9 @@ export default function ProjectPage() {
                           onClick={async () => { await actions.updateProject({ color: c }); refreshProjects(); }} />
                       ))}
                     </div>
+                    <button className="menu-item" onClick={toggleArchive}>
+                      <Icon.archive /> {project.archived_at ? 'Restore project' : 'Archive project'}
+                    </button>
                     <button className="menu-item danger" onClick={removeProject}><Icon.trash /> Delete project</button>
                   </>
                 )}
@@ -164,6 +219,16 @@ export default function ProjectPage() {
         </div>
       </header>
 
+      {project.archived_at && (
+        <div className="archived-banner">
+          <Icon.archive />
+          <span className="grow">This project is archived. It's hidden from the sidebar's main list and doesn't send due-date reminders.</span>
+          {isOwner && <button className="btn btn-ghost btn-small" onClick={toggleArchive}>Restore</button>}
+        </div>
+      )}
+
+      <FilterBar filters={filters} onChange={setFilters} members={members} labels={labels} resultCount={matchCount} />
+
       {sections.length === 0 && (
         <div className="empty-state">
           <h3>No sections yet</h3>
@@ -171,11 +236,14 @@ export default function ProjectPage() {
         </div>
       )}
 
-      {view === 'list'
-        ? <ListView sections={sections} tasks={tasks} members={members} hideCompleted={hideCompleted} actions={actions} onOpen={open} />
-        : <BoardView sections={sections} tasks={tasks} members={members} hideCompleted={hideCompleted} actions={actions} onOpen={open} />}
+      {view === 'list' && <ListView {...viewProps} />}
+      {view === 'board' && <BoardView {...viewProps} />}
+      {view === 'calendar' && <CalendarView {...viewProps} />}
 
       {openId && <TaskPanel key={openId} taskId={openId} onClose={close} onPatch={actions.patchLocal} onRemoved={actions.removeLocal} />}
+      {showLabels && (
+        <LabelsModal labels={labels} taskLabels={data.taskLabels} actions={actions} onClose={() => setShowLabels(false)} />
+      )}
       {showDetails && (
         <ProjectDetails project={project} isOwner={isOwner} onClose={() => setShowDetails(false)}
           onSave={(patch) => actions.updateProject(patch)} />

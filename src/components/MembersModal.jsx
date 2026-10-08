@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,7 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { Avatar, Icon, Modal } from './ui';
 import { confirmDialog } from '../lib/dialog';
 import { notify } from '../lib/notify';
+import { timeAgo } from '../lib/dates';
 import ProfileCard from './ProfileCard';
 
 export default function MembersModal({ project, members, isOwner, onClose, onChanged }) {
@@ -18,6 +19,7 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [viewing, setViewing] = useState(null);
+  const [invites, setInvites] = useState([]);
 
   const add = async (e) => {
     e.preventDefault();
@@ -31,9 +33,36 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
       return;
     }
     setEmail('');
+    if (data.status === 'invited') {
+      toast(`Invitation sent to ${data.email}`);
+      notify('invited', { invitation_id: data.invitation_id });
+      loadInvites();
+      return;
+    }
     toast(`Added ${data.full_name || data.email} to ${project.name}`);
     notify('member_added', { project_id: project.id, user_id: data.id });
     onChanged();
+  };
+
+  const loadInvites = useCallback(async () => {
+    const { data } = await supabase.from('invitations').select('id, email, created_at, last_sent_at')
+      .eq('project_id', project.id).order('created_at');
+    setInvites(data || []);
+  }, [project.id]);
+
+  useEffect(() => {
+    loadInvites();
+  }, [loadInvites]);
+
+  const resend = (invite) => {
+    notify('invited', { invitation_id: invite.id });
+    toast(`Invitation sent again to ${invite.email}`);
+  };
+
+  const cancelInvite = async (invite) => {
+    const { error: err } = await supabase.from('invitations').delete().eq('id', invite.id);
+    if (err) return toast(err.message, 'error');
+    setInvites((list) => list.filter((i) => i.id !== invite.id));
   };
 
   const removeMember = async (member) => {
@@ -88,7 +117,7 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
         </form>
       )}
       {error && <p className="form-error">{error}</p>}
-      {isOwner && <p className="muted small">They need a Kahon account first. Once added, the project appears in their sidebar.</p>}
+      {isOwner && <p className="muted small">People with a Kahon account are added straight away. Anyone else gets an invitation email and joins when they sign up.</p>}
       <ul className="member-list">
         {sorted.map((m) => (
           <li key={m.user_id}>
@@ -122,6 +151,28 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
           </li>
         ))}
       </ul>
+      {invites.length > 0 && (
+        <>
+          <p className="settings-label invites-head">Invited</p>
+          <ul className="member-list">
+            {invites.map((i) => (
+              <li key={i.id}>
+                <span className="avatar avatar-empty" style={{ width: 32, height: 32 }} aria-hidden="true" />
+                <span className="member-meta">
+                  <strong className="truncate">{i.email}</strong>
+                  <span className="muted small">Invitation sent{i.last_sent_at ? ` ${timeAgo(i.last_sent_at)}` : ''} · hasn't joined yet</span>
+                </span>
+                {isOwner && (
+                  <span className="invite-actions">
+                    <button className="link-btn" onClick={() => resend(i)}>Resend</button>
+                    <button className="link-btn muted-link" onClick={() => cancelInvite(i)}>Cancel</button>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {viewing && <ProfileCard userId={viewing} onClose={() => setViewing(null)} />}
     </Modal>
   );

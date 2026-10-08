@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [recovering, setRecovering] = useState(false);
   // True when the account has two-factor on and this session hasn't passed it yet;
   // null while that's being checked.
   const [needsMfa, setNeedsMfa] = useState(null);
@@ -16,7 +17,11 @@ export function AuthProvider({ children }) {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, next) => {
+      setSession(next);
+      // Arrived from a password-reset email: ask for a new password before anything else.
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -46,6 +51,8 @@ export function AuthProvider({ children }) {
     profile,
     loading,
     needsMfa,
+    recovering,
+    finishRecovery: () => setRecovering(false),
     signOut: () => supabase.auth.signOut(),
     // Optimistic profile update for the signed-in user; resolves to an error or null.
     updateProfile: async (patch) => {

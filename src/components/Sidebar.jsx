@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useInbox } from '../hooks/useInbox';
 import { useWorkspace } from '../context/WorkspaceContext';
 import NewProjectModal from './NewProjectModal';
 import SettingsModal from './SettingsModal';
 import { Avatar, Icon, Lockup } from './ui';
 
 export default function Sidebar({ open, onNavigate }) {
-  const { profile, signOut } = useAuth();
-  const { projects, loaded } = useWorkspace();
+  const { user, profile, signOut } = useAuth();
+  const { projects: all, loaded } = useWorkspace();
+  const { unread } = useInbox(user?.id, { limit: 50 });
+  const [showArchived, setShowArchived] = useState(false);
+  const projects = all.filter((p) => !p.archived_at);
+  const archived = all.filter((p) => p.archived_at);
   const [showNew, setShowNew] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -20,7 +25,11 @@ export default function Sidebar({ open, onNavigate }) {
 
       <nav className="side-nav">
         <NavLink to="/" end className="nav-item" onClick={onNavigate}>
-          <Icon.inbox /> My tasks
+          <Icon.check2 /> My tasks
+        </NavLink>
+        <NavLink to="/inbox" className="nav-item" onClick={onNavigate}>
+          <Icon.bell /> Inbox
+          {unread > 0 && <span className="nav-badge" aria-label={`${unread} unread`}>{unread > 49 ? '50+' : unread}</span>}
         </NavLink>
       </nav>
 
@@ -38,7 +47,20 @@ export default function Sidebar({ open, onNavigate }) {
             <span className="truncate">{p.name}</span>
           </NavLink>
         ))}
-        {loaded && projects.length === 0 && (
+        {archived.length > 0 && (
+          <>
+            <button type="button" className="side-archived" onClick={() => setShowArchived((v) => !v)} aria-expanded={showArchived}>
+              <Icon.chevron width="14" height="14" className={showArchived ? 'is-open' : ''} /> Archived ({archived.length})
+            </button>
+            {showArchived && archived.map((p) => (
+              <NavLink key={p.id} to={`/p/${p.id}`} className="nav-item is-archived" onClick={onNavigate}>
+                <span className="swatch" style={{ background: p.color }} />
+                <span className="truncate">{p.name}</span>
+              </NavLink>
+            ))}
+          </>
+        )}
+        {loaded && all.length === 0 && (
           <button className="side-empty" onClick={() => setShowNew(true)}>
             Create your first project to start adding tasks.
           </button>

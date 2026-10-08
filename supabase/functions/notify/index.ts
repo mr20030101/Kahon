@@ -2,54 +2,37 @@
 //
 // The app calls this after an action with only an event type and an id. Recipients
 // and content are always looked up here, from the database, so a caller can't use
-// this to email arbitrary people or text: they must be signed in, be a member of
-// the project, and (for comments) be the comment's author.
+// this to email arbitrary people or text: they must be signed in (with two-factor if
+// it's on), be a member of the project, and (for comments) be the comment's author.
 //
 // Secrets: RESEND_API_KEY, EMAIL_FROM ("Kahon <notifications@yourdomain.com>"),
 // APP_URL ("https://kahon.vercel.app"). SUPABASE_URL, SUPABASE_ANON_KEY and
 // SUPABASE_SERVICE_ROLE_KEY are provided by Supabase automatically.
 
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-const EMAIL_FROM = Deno.env.get('EMAIL_FROM') ?? 'Kahon <onboarding@resend.dev>';
-const APP_URL = (Deno.env.get('APP_URL') ?? '').replace(/\/$/, '');
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { CORS, json, requireUser } from '../_shared/auth.ts';
+import { APP_URL, type Email, plainMentions, sendEmail } from '../_shared/email.ts';
 
 // At most one email per kind, item and person in this window.
 const DEDUPE_MINUTES = 10;
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+// Re-sending an invitation is allowed this often.
+const INVITE_RESEND_MINUTES = 5;
+const MENTION = /@\[[^\]]{1,120}\]\(([0-9a-f-]{36})\)/g;
 
 type Admin = SupabaseClient;
-type Email = { subject: string; heading: string; intro: string; quote?: string; cta: string; url: string };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: 'Not signed in' }, 401);
-
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const auth = await requireUser(req);
+    if ('response' in auth) return auth.response;
     const body = await req.json().catch(() => ({}));
     const handler = HANDLERS[body?.type as keyof typeof HANDLERS];
     if (!handler) return json({ error: 'Unknown notification type' }, 400);
 
-    const sent = await handler(admin, user.id, body);
+    const sent = await handler(auth.admin, auth.user.id, body);
     return json({ sent });
   } catch (err) {
     console.error(err);
@@ -71,12 +54,19 @@ const HANDLERS = {
     }, 1); // test sends may repeat after a minute
   },
 
-  // { task_id }: email the task's assignee.
-  async task_assigned(admin: Admin, actorId: string, { task_id }: { task_id?: string }) {
+  // { task_id, user_id? }: email the task's assignee, or `user_id` when they were added as
+  // an extra assignee (only if they really are one).
+  async task_assigned(admin: Admin, actorId: string, { task_id, user_id }: { task_id?: string; user_id?: string }) {
     const task = await getTask(admin, task_id);
     if (!task || !(await isMember(admin, task.project_id, actorId))) return 0;
+    let recipient = task.assignee_id;
+    if (user_id) {
+      const { count } = await admin.from('task_assignees').select('user_id', { count: 'exact', head: true })
+        .eq('task_id', task.id).eq('user_id', user_id);
+      recipient = count ? user_id : null;
+    }
     return send(admin, {
-      kind: 'task_assigned', refId: task.id, recipientIds: [task.assignee_id], actorId,
+      kind: 'task_assigned', refId: task.id, recipientIds: [recipient], actorId,
       build: (actor) => ({
         subject: `${actor} assigned you "${task.title}"`,
         heading: 'You have a new task',
@@ -110,25 +100,75 @@ const HANDLERS = {
     });
   },
 
-  // { comment_id }: email the task's assignee and creator, except the commenter.
+  // { comment_id }: email people @mentioned in it (if they're in the project), then the
+  // task's assignees and creator, except the commenter.
   async comment_added(admin: Admin, actorId: string, { comment_id }: { comment_id?: string }) {
     if (!comment_id) return 0;
     const { data: comment } = await admin.from('comments').select('id, body, author_id, task_id').eq('id', comment_id).single();
     if (!comment || comment.author_id !== actorId) return 0;
     const task = await getTask(admin, comment.task_id);
     if (!task) return 0;
-    return send(admin, {
+
+    const text = plainMentions(comment.body);
+    const quote = text.length > 600 ? `${text.slice(0, 600)}…` : text;
+    const url = `${APP_URL}/p/${task.project_id}?task=${task.id}`;
+
+    const tagged = [...new Set([...comment.body.matchAll(MENTION)].map((m) => m[1]))];
+    const { data: members } = tagged.length
+      ? await admin.from('project_members').select('user_id').eq('project_id', task.project_id).in('user_id', tagged)
+      : { data: [] };
+    const mentioned = (members ?? []).map((m) => m.user_id);
+
+    const { data: extra } = await admin.from('task_assignees').select('user_id').eq('task_id', task.id);
+    const followers = [task.assignee_id, task.created_by, ...(extra ?? []).map((a) => a.user_id)]
+      .filter((id) => id && !mentioned.includes(id));
+
+    let sent = await send(admin, {
+      kind: 'mentioned', refId: comment.id, recipientIds: mentioned, actorId,
+      build: (actor) => ({
+        subject: `${actor} mentioned you on "${task.title}"`,
+        heading: 'You were mentioned',
+        intro: `${actor} mentioned you in a comment on "${task.title}" in ${task.project.name}.`,
+        quote, cta: 'Reply in Kahon', url,
+      }),
+    });
+    sent += await send(admin, {
       // Keyed by task, so a burst of comments sends one email, not one per comment.
-      kind: 'comment_added', refId: task.id, recipientIds: [task.assignee_id, task.created_by], actorId,
+      kind: 'comment_added', refId: task.id, recipientIds: followers, actorId,
       build: (actor) => ({
         subject: `${actor} commented on "${task.title}"`,
         heading: 'New comment',
         intro: `${actor} commented on "${task.title}" in ${task.project.name}.`,
-        quote: comment.body.length > 600 ? `${comment.body.slice(0, 600)}…` : comment.body,
-        cta: 'Reply in Kahon',
-        url: `${APP_URL}/p/${task.project_id}?task=${task.id}`,
+        quote, cta: 'Reply in Kahon', url,
       }),
     });
+    return sent;
+  },
+
+  // { invitation_id }: email someone without an account who was invited to a project.
+  async invited(admin: Admin, actorId: string, { invitation_id }: { invitation_id?: string }) {
+    if (!invitation_id) return 0;
+    const { data: invite } = await admin.from('invitations')
+      .select('id, email, project_id, last_sent_at, project:projects(name)').eq('id', invitation_id).single();
+    if (!invite) return 0;
+    const { count } = await admin.from('project_members').select('user_id', { count: 'exact', head: true })
+      .eq('project_id', invite.project_id).eq('user_id', actorId).eq('role', 'owner');
+    if (!count) return 0;
+    if (invite.last_sent_at && Date.now() - new Date(invite.last_sent_at).getTime() < INVITE_RESEND_MINUTES * 60_000) return 0;
+
+    const { data: actor } = await admin.from('profiles').select('full_name, email').eq('id', actorId).single();
+    const who = actor?.full_name || actor?.email || 'A teammate';
+    const project = (Array.isArray(invite.project) ? invite.project[0] : invite.project)?.name ?? 'a project';
+    await sendEmail(invite.email, {
+      subject: `${who} invited you to ${project} on Kahon`,
+      heading: `Join ${project} on Kahon`,
+      intro: `${who} invited you to the ${project} project on Kahon, where your team plans and tracks its work. Create your account with this email address (${invite.email}) and you'll be added automatically.`,
+      cta: 'Create your account',
+      url: `${APP_URL}/?signup=${encodeURIComponent(invite.email)}`,
+      footer: `You got this because ${who} invited ${invite.email}. If you don't want to join, ignore this email.`,
+    });
+    await admin.from('invitations').update({ last_sent_at: new Date().toISOString() }).eq('id', invite.id);
+    return 1;
   },
 };
 
@@ -179,56 +219,13 @@ async function deliver(
   admin: Admin, person: { id: string; email: string }, kind: string, refId: string, email: Email,
   dedupeMinutes = DEDUPE_MINUTES,
 ) {
-  if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');
   const since = new Date(Date.now() - dedupeMinutes * 60_000).toISOString();
   const { count } = await admin.from('email_log').select('id', { count: 'exact', head: true })
     .eq('kind', kind).eq('ref_id', refId).eq('recipient_id', person.id).gte('sent_at', since);
   if (count) return 0;
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: EMAIL_FROM, to: [person.email], subject: email.subject, html: renderHtml(email), text: renderText(email) }),
-  });
-  if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+  await sendEmail(person.email, email);
   await admin.from('email_log').insert({ kind, ref_id: refId, recipient_id: person.id });
   return 1;
 }
 
-const esc = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-
-function renderText(e: Email) {
-  return [e.heading, '', e.intro, e.quote ? `\n"${e.quote}"\n` : '', `${e.cta}: ${e.url}`, '',
-    'You get these emails because you use Kahon. Turn them off in Settings, under Notifications.'].join('\n');
-}
-
-// Inline styles only: email clients ignore <style> blocks and CSS variables.
-function renderHtml(e: Email) {
-  const logo = APP_URL ? `<img src="${esc(APP_URL)}/icons/icon-192.png" width="28" height="28" alt="" style="display:block;border-radius:6px" />` : '';
-  const quote = e.quote
-    ? `<div style="margin:18px 0 0;padding:12px 14px;border-left:3px solid #3DBE6B;background:#F4F8F5;border-radius:6px;color:#13341F;font-size:15px;line-height:1.5;white-space:pre-wrap">${esc(e.quote)}</div>`
-    : '';
-  return `<!doctype html>
-<html><body style="margin:0;padding:24px 12px;background:#F4F8F5;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#13341F">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #D3E2D8;border-radius:12px">
-      <tr><td style="padding:18px 24px;background:#13341F;border-radius:12px 12px 0 0">
-        <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-          <td style="padding-right:10px">${logo}</td>
-          <td style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.3px">Kahon</td>
-        </tr></table>
-      </td></tr>
-      <tr><td style="padding:26px 24px 8px">
-        <h1 style="margin:0;font-size:20px;line-height:1.3;color:#13341F">${esc(e.heading)}</h1>
-        <p style="margin:10px 0 0;font-size:15px;line-height:1.55;color:#4A6B56">${esc(e.intro)}</p>
-        ${quote}
-        <p style="margin:24px 0 0"><a href="${esc(e.url)}" style="display:inline-block;padding:11px 18px;background:#15703C;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;border-radius:8px">${esc(e.cta)}</a></p>
-      </td></tr>
-      <tr><td style="padding:22px 24px 22px;font-size:12px;line-height:1.5;color:#7A8F80">
-        You get these emails because you use Kahon. Turn them off in Settings, under Notifications.
-      </td></tr>
-    </table>
-  </td></tr></table>
-</body></html>`;
-}

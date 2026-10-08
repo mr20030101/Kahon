@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, DragOverlay, MeasuringStrategy, useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { byPosition } from '../lib/position';
 import { flash, lift, settle } from '../lib/motion';
 import { columnDndId, dropPosition, sectionDndId, taskDrop, typedCollisions, useDndSensors } from '../lib/dnd';
-import { AssigneeSelect, Check, DueInput, EditableText, Icon, InlineAdd, PrioritySelect } from './ui';
+import { AssigneeSelect, Avatar, Check, DueInput, EditableText, Icon, InlineAdd, PrioritySelect } from './ui';
 import { confirmDialog } from '../lib/dialog';
+import { LabelChips } from './LabelsModal';
 
 export function subtaskCounts(tasks) {
   const counts = {};
@@ -21,8 +22,21 @@ export function subtaskCounts(tasks) {
 
 const MEASURING = { droppable: { strategy: MeasuringStrategy.Always } };
 
-export default function ListView({ sections, tasks, members, hideCompleted, actions, onOpen }) {
+// Selection (for bulk actions) and per-task labels/assignees, shared with the rows.
+const ListContext = createContext({ selected: new Set(), toggle: () => {}, deco: {} });
+
+export default function ListView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask }) {
   const [active, setActive] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const toggle = useCallback((id) => setSelected((cur) => {
+    const next = new Set(cur);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  }), []);
+  const memberById = useMemo(() => Object.fromEntries(members.map((m) => [m.user_id, m.profile])), [members]);
+  const ctx = useMemo(() => ({ selected, toggle, deco: { labels, labelsByTask, extrasByTask, memberById } }),
+    [selected, toggle, labels, labelsByTask, extrasByTask, memberById]);
   const listRef = useRef(null);
   const counts = useMemo(() => subtaskCounts(tasks), [tasks]);
   const top = tasks.filter((t) => !t.parent_id && !(hideCompleted && t.completed));
@@ -50,7 +64,12 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
 
   const activeSection = active?.type === 'section' ? sections.find((s) => s.id === active.sectionId) : null;
 
+  // Drop selections for tasks that are no longer shown (deleted, filtered out, completed and hidden).
+  const visibleIds = new Set(top.map((t) => t.id));
+  const chosen = [...selected].filter((id) => visibleIds.has(id));
+
   return (
+    <ListContext.Provider value={ctx}>
     <DndContext sensors={sensors} collisionDetection={typedCollisions} measuring={MEASURING}
       onDragStart={({ active: drag }) => setActive(drag.data.current)} onDragCancel={() => setActive(null)} onDragEnd={onDragEnd}>
       <div className="list" ref={listRef}>
@@ -94,6 +113,10 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
         )}
       </DragOverlay>
     </DndContext>
+    {chosen.length > 0 && (
+      <BulkBar ids={chosen} sections={sections} members={members} actions={actions} onClear={() => setSelected(new Set())} />
+    )}
+    </ListContext.Provider>
   );
 }
 
@@ -157,20 +180,32 @@ function ListSection({ section, tasks, counts, members, actions, onOpen, folded 
 }
 
 function TaskRow({ task, count, members, actions, onOpen }) {
+  const { selected, toggle, deco } = useContext(ListContext);
+  const isSelected = selected.has(task.id);
+  const extras = (deco.extrasByTask?.get(task.id) ?? []).map((id) => deco.memberById?.[id]).filter(Boolean);
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { type: 'task', task } });
   const style = { transform: CSS.Translate.toString(transform), transition };
   const set = (patch) => actions.updateTask(task.id, patch);
   return (
     <div ref={setNodeRef} style={style} onClick={() => onOpen(task.id)} data-settle={task.id}
-      className={`task-row row-grid${task.completed ? ' is-done' : ''}${isDragging ? ' is-dragging' : ''}`}>
+      className={`task-row row-grid${task.completed ? ' is-done' : ''}${isDragging ? ' is-dragging' : ''}${isSelected ? ' is-selected' : ''}`}>
       <div className="task-cell-title">
+        <input type="checkbox" className={`row-select${selected.size ? ' is-visible' : ''}`} checked={isSelected}
+          onClick={(e) => e.stopPropagation()} onChange={() => toggle(task.id)} aria-label={`Select ${task.title}`} />
         <button ref={setActivatorNodeRef} className="drag-handle reveal" {...attributes} {...listeners}
           onClick={(e) => e.stopPropagation()} aria-label={`Move ${task.title}`} title="Drag to move">
           <Icon.grip />
         </button>
         <Check checked={task.completed} onChange={(v) => set({ completed: v })} />
         <button className="task-title" onClick={(e) => { e.stopPropagation(); onOpen(task.id); }}>{task.title}</button>
+        <LabelChips ids={deco.labelsByTask?.get(task.id)} labels={deco.labels} max={2} />
+        {task.recurrence && <span className="mini-count" title={`Repeats ${task.recurrence}`}><Icon.repeat width="14" height="14" /></span>}
+        {extras.length > 0 && (
+          <span className="avatar-row" title={`Also assigned: ${extras.map((p) => p.full_name).join(', ')}`}>
+            {extras.slice(0, 2).map((p) => <Avatar key={p.id} profile={p} size={20} />)}
+          </span>
+        )}
         {count && (
           <span className="mini-count" title="Subtasks done">
             <Icon.subtasks width="14" height="14" /> {count.done}/{count.total}
@@ -180,6 +215,51 @@ function TaskRow({ task, count, members, actions, onOpen }) {
       <AssigneeSelect value={task.assignee_id} members={members} onChange={(v) => set({ assignee_id: v })} />
       <DueInput value={task.due_date} completed={task.completed} onChange={(v) => set({ due_date: v })} />
       <PrioritySelect value={task.priority} onChange={(v) => set({ priority: v })} />
+    </div>
+  );
+}
+
+// Actions for the selected rows.
+function BulkBar({ ids, sections, members, actions, onClear }) {
+  const n = ids.length;
+  const done = (patch) => {
+    actions.bulkUpdate(ids, patch);
+    onClear();
+  };
+  const remove = async () => {
+    const ok = await confirmDialog({
+      title: `Delete ${n} task${n === 1 ? '' : 's'}?`,
+      text: "Their subtasks, comments and attachments are deleted too. This can't be undone.",
+      confirmText: `Delete ${n} task${n === 1 ? '' : 's'}`,
+      danger: true,
+    });
+    if (!ok) return;
+    actions.bulkDelete(ids);
+    onClear();
+  };
+
+  return (
+    <div className="bulk-bar" role="toolbar" aria-label="Selected tasks">
+      <strong>{n} selected</strong>
+      <button type="button" className="btn btn-ghost btn-small" onClick={() => done({ completed: true })}><Check checked onChange={() => {}} /> Complete</button>
+      <label className="btn btn-ghost btn-small bulk-select">Move to…
+        <select value="" onChange={(e) => e.target.value && done({ section_id: e.target.value, position: Date.now() / 1000 })}>
+          <option value="">Move to section</option>
+          {sections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </label>
+      <label className="btn btn-ghost btn-small bulk-select">Assign…
+        <select value="" onChange={(e) => e.target.value && done({ assignee_id: e.target.value === 'none' ? null : e.target.value })}>
+          <option value="">Assign to</option>
+          <option value="none">Nobody</option>
+          {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.profile?.full_name || m.profile?.email}</option>)}
+        </select>
+      </label>
+      <label className="btn btn-ghost btn-small bulk-select">Due date…
+        <input type="date" onChange={(e) => e.target.value && done({ due_date: e.target.value })} aria-label="Set due date" />
+      </label>
+      <button type="button" className="btn btn-ghost btn-small danger-text" onClick={remove}><Icon.trash /> Delete</button>
+      <button type="button" className="link-btn push-right" onClick={onClear}>Clear</button>
     </div>
   );
 }
