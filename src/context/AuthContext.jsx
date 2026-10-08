@@ -7,6 +7,9 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  // True when the account has two-factor on and this session hasn't passed it yet;
+  // null while that's being checked.
+  const [needsMfa, setNeedsMfa] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -18,6 +21,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   const userId = session?.user?.id;
+
+  useEffect(() => {
+    if (!session) {
+      setNeedsMfa(false);
+      return;
+    }
+    setNeedsMfa((cur) => (cur === false ? false : null));
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data }) => {
+      setNeedsMfa(data?.nextLevel === 'aal2' && data?.currentLevel !== 'aal2');
+    });
+  }, [session]);
   useEffect(() => {
     if (!userId) {
       setProfile(null);
@@ -31,6 +45,7 @@ export function AuthProvider({ children }) {
     user: session?.user ?? null,
     profile,
     loading,
+    needsMfa,
     signOut: () => supabase.auth.signOut(),
     // Optimistic profile update for the signed-in user; resolves to an error or null.
     updateProfile: async (patch) => {

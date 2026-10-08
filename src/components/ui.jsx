@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { dueTone, formatDue } from '../lib/dates';
 import { PRIORITIES } from '../lib/constants';
+import { avatarUrl } from '../lib/profiles';
 
 const svg = (d, extra = {}) => (props) => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"
@@ -23,6 +24,11 @@ export const Icon = {
   grip: svg(<><circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none" /><circle cx="15" cy="6" r="1.3" fill="currentColor" stroke="none" /><circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="15" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="9" cy="18" r="1.3" fill="currentColor" stroke="none" /><circle cx="15" cy="18" r="1.3" fill="currentColor" stroke="none" /></>),
   bell: svg(<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0" />),
   bellOff: svg(<path d="M8.5 5.6A6 6 0 0 1 18 11v4M6 11v5l-1.5 2H17M10 20.5a2 2 0 0 0 4 0M3 3l18 18" />),
+  user: svg(<><circle cx="12" cy="8" r="4" /><path d="M4.5 20.5c.9-4 3.8-6 7.5-6s6.6 2 7.5 6" /></>),
+  settings: svg(<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>),
+  link: svg(<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />),
+  check2: svg(<><circle cx="12" cy="12" r="9" /><path d="M8 12.5l2.7 2.7L16 9.8" /></>),
+  info: svg(<><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>),
   sparkle: svg(<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />),
   download: svg(<path d="M12 4v11M7 10l5 5 5-5M5 20h14" />),
   paperclip: svg(<path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />),
@@ -72,10 +78,11 @@ export function Avatar({ profile, size = 26, title }) {
   if (!profile) {
     return <span className="avatar avatar-empty" style={{ width: size, height: size }} title={title || 'Unassigned'} />;
   }
+  const photo = avatarUrl(profile.avatar_path);
   return (
     <span className="avatar" title={title || profile.full_name}
       style={{ width: size, height: size, background: profile.color, fontSize: size * 0.4 }}>
-      {initials(profile.full_name || profile.email)}
+      {photo ? <img src={photo} alt="" loading="lazy" /> : initials(profile.full_name || profile.email)}
     </span>
   );
 }
@@ -112,14 +119,20 @@ export function DueLabel({ value, completed }) {
 }
 
 export function Modal({ title, onClose, children, width = 440 }) {
+  const ref = useRef(null);
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
+    // With modals stacked (a profile opened from the members list), Escape closes the top one only.
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      if (backdrops[backdrops.length - 1] === ref.current) onClose();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div ref={ref} className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={title} style={{ maxWidth: width }}>
         <div className="modal-head">
           <h2>{title}</h2>

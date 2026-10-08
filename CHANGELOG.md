@@ -14,6 +14,23 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- **Settings**: click your name in the sidebar (or the gear) to open Settings. **Profile** has your photo, full name, job title, department or team, location, time zone, an "About me" and your avatar color. **Notifications** has the email notifications switch (it was the bell in the sidebar). **Account** lets you change your password and sign out.
+- **Profile photos**: upload a photo and it replaces your initials everywhere. Photos are cropped to a square and resized automatically.
+- **Teammate profiles**: click someone in a project's members list to see their role, team, local time, location and "About me".
+- **Project details**: an **About** button on every project shows its description, status (On track, At risk, Off track, On hold, Complete), start and due dates, and links such as the spec, design file or repository. Owners can edit them; the status, dates and first line of the description also show under the project name.
+
+### Changed
+
+- Projects now open in **Board** view. Switch to List from the header; links to a list view keep working.
+- **Hide completed** moved from the project header into the project's **⋯** menu, which every member can now open (color and Delete project stay owner-only). Kahon remembers the setting for each project, and a "Completed hidden · Show" chip in the header shows when it's on.
+- Everyone has been given a new avatar color, spread across a wider palette of 12 so teammates are easier to tell apart. Pick your own in Settings.
+
+### Fixed
+
+- People can no longer change the email on their profile. Members are added by email, so a changeable one could have let someone take a teammate's place.
+
 ## 0.2.0 — 2026-10-08
 
 ### Added
@@ -31,6 +48,6 @@ before versioning was set up shipped as 0.1.0.
 - **My tasks**: everything assigned to you across projects.
 - Drag and drop to reorder tasks and move them between sections in both views, and to reorder sections.
 - **Attachments** on tasks: images, PDFs, documents, spreadsheets and slides up to 25 MB, added by browsing, dragging onto the task or pasting.
-- **Email notifications** when you're assigned a task, added to a project, or someone comments on a task you're assigned to or created. Turn them off with the bell in the sidebar.
+- **Email notifications** when you're assigned a task, added to a project, or someone comments on a task you're assigned to or created. Turn them off in Settings → Notifications.
 - **Multiple owners**: a project owner can make other members owners too. A project always keeps at least one owner.
 - Completing a task completes its subtasks.

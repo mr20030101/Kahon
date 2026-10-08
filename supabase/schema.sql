@@ -16,7 +16,7 @@ create table if not exists public.profiles (
   created_at  timestamptz not null default now()
 );
 
--- Per-person opt-out for notification emails (bell in the sidebar)
+-- Per-person opt-out for notification emails (Settings → Notifications)
 alter table public.profiles add column if not exists email_notifications boolean not null default true;
 
 create or replace function public.handle_new_user()
@@ -31,7 +31,8 @@ begin
     new.id,
     lower(new.email),
     coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), split_part(new.email, '@', 1)),
-    (array['#2E6F73','#B4532A','#5B4BB7','#2F7D32','#C2185B','#1565C0','#8D6E00'])[1 + floor(random() * 7)::int]
+    (array['#2E6F73','#B4532A','#5B4BB7','#2F7D32','#C2185B','#1565C0',
+           '#8D6E00','#6D4C41','#00838F','#7B1FA2','#D84315','#455A64'])[1 + floor(random() * 12)::int]
   )
   on conflict (id) do nothing;
   return new;
@@ -518,6 +519,208 @@ create table if not exists public.ai_requests (
 create index if not exists idx_ai_requests_user on public.ai_requests (user_id, created_at desc);
 
 alter table public.ai_requests enable row level security;
+
+-- ------------------------------------------------------------
+-- Profile fields
+-- ------------------------------------------------------------
+alter table public.profiles add column if not exists avatar_path text;
+alter table public.profiles add column if not exists job_title   text;
+alter table public.profiles add column if not exists department  text;
+alter table public.profiles add column if not exists bio         text;
+alter table public.profiles add column if not exists location    text;
+alter table public.profiles add column if not exists timezone    text;
+
+alter table public.profiles drop constraint if exists profiles_details_check;
+alter table public.profiles add constraint profiles_details_check check (
+  char_length(coalesce(full_name, '')) <= 120
+  and char_length(coalesce(job_title, '')) <= 100
+  and char_length(coalesce(department, '')) <= 100
+  and char_length(coalesce(bio, '')) <= 1000
+  and char_length(coalesce(location, '')) <= 100
+  and char_length(coalesce(timezone, '')) <= 64
+  and color ~ '^#[0-9A-Fa-f]{6}$'
+  -- Avatars live in the avatars bucket under the owner's own folder.
+  and (avatar_path is null or avatar_path like id::text || '/%')
+);
+
+-- People may edit these columns of their own profile, and nothing else. In particular not
+-- email: add_member_by_email finds people by it, so a changeable email would let someone
+-- take a teammate's place when an owner adds them.
+revoke update on public.profiles from authenticated;
+grant update (full_name, color, avatar_path, job_title, department, bio, location, timezone, email_notifications)
+  on public.profiles to authenticated;
+
+-- ------------------------------------------------------------
+-- Avatars: public bucket (avatars are shown to teammates and in emails), one folder per
+-- person, and only you can write to your folder.
+-- ------------------------------------------------------------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 2097152, array['image/png', 'image/jpeg', 'image/webp'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+-- Reading your own folder is needed to replace or remove a photo; everyone else sees
+-- avatars through the bucket's public URLs.
+drop policy if exists "avatars read own" on storage.objects;
+create policy "avatars read own" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "avatars insert own" on storage.objects;
+create policy "avatars insert own" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "avatars update own" on storage.objects;
+create policy "avatars update own" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "avatars delete own" on storage.objects;
+create policy "avatars delete own" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ------------------------------------------------------------
+-- Project details
+-- ------------------------------------------------------------
+alter table public.projects add column if not exists description text not null default '';
+alter table public.projects add column if not exists status      text not null default 'on_track';
+alter table public.projects add column if not exists start_date  date;
+alter table public.projects add column if not exists due_date    date;
+alter table public.projects add column if not exists links       jsonb not null default '[]'::jsonb;
+
+alter table public.projects drop constraint if exists projects_details_check;
+alter table public.projects add constraint projects_details_check check (
+  char_length(description) <= 5000
+  and status in ('on_track', 'at_risk', 'off_track', 'on_hold', 'complete')
+  and (start_date is null or due_date is null or due_date >= start_date)
+  and jsonb_typeof(links) = 'array'
+  and jsonb_array_length(links) <= 20
+  -- Each link is {label, url} with a web URL, so nothing like javascript: can be stored.
+  and not jsonb_path_exists(links, '$[*] ? (!(@.url like_regex "^https?://"))')
+);
+
+-- ------------------------------------------------------------
+-- Two-factor authentication: once someone has a verified authenticator, their session must
+-- have passed it (aal2) before any project data is readable or writable. Every project
+-- policy goes through these three helpers, so this one check covers them all.
+-- ------------------------------------------------------------
+create or replace function public.mfa_ok()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2'
+      or not exists (
+        select 1 from auth.mfa_factors f where f.user_id = auth.uid() and f.status = 'verified'
+      );
+$$;
+
+create or replace function public.is_member(p_project uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.mfa_ok() and exists (
+    select 1 from public.project_members
+    where project_id = p_project and user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.is_owner(p_project uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.mfa_ok() and exists (
+    select 1 from public.project_members
+    where project_id = p_project and user_id = auth.uid() and role = 'owner'
+  );
+$$;
+
+create or replace function public.shares_project_with(p_user uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.mfa_ok() and exists (
+    select 1
+    from public.project_members a
+    join public.project_members b on a.project_id = b.project_id
+    where a.user_id = auth.uid() and b.user_id = p_user
+  );
+$$;
+
+-- ------------------------------------------------------------
+-- Keep profiles.email in step with the sign-in email once a change is confirmed.
+-- ------------------------------------------------------------
+create or replace function public.handle_user_email_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.profiles set email = lower(new.email) where id = new.id;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_email_changed on auth.users;
+create trigger on_auth_user_email_changed
+  after update of email on auth.users
+  for each row
+  when (new.email is distinct from old.email)
+  execute function public.handle_user_email_change();
+
+-- ------------------------------------------------------------
+-- RPC: leave every project. Refuses (and changes nothing) while you're the only owner of a
+-- project, since that would leave it with no one able to manage it.
+-- ------------------------------------------------------------
+create or replace function public.leave_all_projects()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_blocked text;
+  v_left integer;
+begin
+  if auth.uid() is null or not public.mfa_ok() then
+    raise exception 'Sign in to leave projects';
+  end if;
+
+  select string_agg(p.name, ', ' order by p.name) into v_blocked
+  from public.project_members m
+  join public.projects p on p.id = m.project_id
+  where m.user_id = auth.uid() and m.role = 'owner'
+    and not exists (
+      select 1 from public.project_members o
+      where o.project_id = m.project_id and o.role = 'owner' and o.user_id <> auth.uid()
+    );
+  if v_blocked is not null then
+    raise exception 'You are the only owner of: %. Make someone else an owner or delete those projects first.', v_blocked;
+  end if;
+
+  delete from public.project_members where user_id = auth.uid();
+  get diagnostics v_left = row_count;
+  return v_left;
+end;
+$$;
+
+grant execute on function public.leave_all_projects() to authenticated;
 
 -- ------------------------------------------------------------
 -- Realtime: live updates for boards, comments and membership

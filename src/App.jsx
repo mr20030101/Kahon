@@ -11,13 +11,16 @@ import { Icon, Lockup, Logo } from './components/ui';
 import Login from './pages/Login';
 import MyTasks from './pages/MyTasks';
 import ProjectPage from './pages/ProjectPage';
+import MfaChallenge from './pages/MfaChallenge';
 
 function Shell() {
-  const { session, loading } = useAuth();
+  const { session, loading, needsMfa } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
 
   if (loading) return <div className="splash"><Logo size={56} /></div>;
   if (!session) return <Login />;
+  if (needsMfa === null) return <div className="splash"><Logo size={56} /></div>;
+  if (needsMfa) return <MfaChallenge />;
 
   return (
     <WorkspaceProvider>

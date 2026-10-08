@@ -58,7 +58,7 @@ git push -u origin main
 Kahon sends two kinds of email, both through [Resend](https://resend.com) (free for 3,000 emails a month, 100 a day):
 
 - **Account emails** (sign-up confirmation), sent by Supabase Auth over Resend's SMTP.
-- **Notifications**: you were assigned a task, added to a project, or someone commented on a task you're assigned to or created. Sent by the `notify` Edge Function. Each person can turn these off with the bell in the sidebar.
+- **Notifications**: you were assigned a task, added to a project, or someone commented on a task you're assigned to or created. Sent by the `notify` Edge Function. Each person can turn these off in Settings → Notifications.
 
 ### Resend
 

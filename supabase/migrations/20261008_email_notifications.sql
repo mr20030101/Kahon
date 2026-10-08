@@ -1,7 +1,7 @@
 -- Email notifications (2026-10-08). Run once in Supabase -> SQL Editor.
 -- supabase/schema.sql includes the same changes for fresh installs.
 
--- Per-person opt-out, toggled from the bell in the sidebar.
+-- Per-person opt-out, toggled in Settings → Notifications.
 alter table public.profiles add column if not exists email_notifications boolean not null default true;
 
 -- What the notify Edge Function has sent, so repeat events within a few minutes

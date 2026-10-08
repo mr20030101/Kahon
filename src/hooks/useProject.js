@@ -4,10 +4,11 @@ import { byPosition } from '../lib/position';
 import { useToast } from '../context/ToastContext';
 import { removeAttachmentFiles } from '../components/Attachments';
 import { notify } from '../lib/notify';
+import { PROFILE_BRIEF } from '../lib/profiles';
 
 const EMPTY = { loading: true, error: null, project: null, sections: [], tasks: [], members: [] };
 
-const MEMBER_SELECT = 'role, user_id, profile:profiles(id, full_name, email, color)';
+const MEMBER_SELECT = `role, user_id, profile:profiles(${PROFILE_BRIEF})`;
 
 export function useProject(projectId) {
   const toast = useToast();
@@ -148,6 +149,7 @@ export function useProject(projectId) {
     setState((st) => ({ ...st, project: { ...st.project, ...patch } }));
     const { error } = await supabase.from('projects').update(patch).eq('id', projectId);
     if (error) fail(error);
+    return !error;
   }, [projectId, fail]);
 
   const deleteProject = useCallback(async () => {

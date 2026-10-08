@@ -200,7 +200,7 @@ const esc = (s: string) =>
 
 function renderText(e: Email) {
   return [e.heading, '', e.intro, e.quote ? `\n"${e.quote}"\n` : '', `${e.cta}: ${e.url}`, '',
-    'You get these emails because you use Kahon. Turn them off with the bell in the sidebar.'].join('\n');
+    'You get these emails because you use Kahon. Turn them off in Settings, under Notifications.'].join('\n');
 }
 
 // Inline styles only: email clients ignore <style> blocks and CSS variables.
@@ -226,7 +226,7 @@ function renderHtml(e: Email) {
         <p style="margin:24px 0 0"><a href="${esc(e.url)}" style="display:inline-block;padding:11px 18px;background:#15703C;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;border-radius:8px">${esc(e.cta)}</a></p>
       </td></tr>
       <tr><td style="padding:22px 24px 22px;font-size:12px;line-height:1.5;color:#7A8F80">
-        You get these emails because you use Kahon. Turn them off with the bell in the sidebar.
+        You get these emails because you use Kahon. Turn them off in Settings, under Notifications.
       </td></tr>
     </table>
   </td></tr></table>

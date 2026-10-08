@@ -10,8 +10,9 @@ import AskAI from './AskAI';
 import { AssigneeSelect, Avatar, Check, DueInput, Icon, InlineAdd, PrioritySelect } from './ui';
 import { confirmDialog, isDialogOpen } from '../lib/dialog';
 import { notify } from '../lib/notify';
+import { PROFILE_BRIEF } from '../lib/profiles';
 
-const COMMENT_SELECT = 'id, body, created_at, author_id, author:profiles(id, full_name, color, email)';
+const COMMENT_SELECT = `id, body, created_at, author_id, author:profiles(${PROFILE_BRIEF})`;
 
 export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const { user } = useAuth();
@@ -42,7 +43,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
       }
       const [p, m, s, sub, c] = await Promise.all([
         supabase.from('projects').select('id, name, color').eq('id', t.project_id).single(),
-        supabase.from('project_members').select('role, user_id, profile:profiles(id, full_name, email, color)').eq('project_id', t.project_id),
+        supabase.from('project_members').select(`role, user_id, profile:profiles(${PROFILE_BRIEF})`).eq('project_id', t.project_id),
         supabase.from('sections').select('id, name, position').eq('project_id', t.project_id).order('position'),
         supabase.from('tasks').select('*').eq('parent_id', taskId).order('position'),
         supabase.from('comments').select(COMMENT_SELECT).eq('task_id', taskId).order('created_at'),

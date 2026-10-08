@@ -7,6 +7,7 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { Avatar, Icon, Modal } from './ui';
 import { confirmDialog } from '../lib/dialog';
 import { notify } from '../lib/notify';
+import ProfileCard from './ProfileCard';
 
 export default function MembersModal({ project, members, isOwner, onClose, onChanged }) {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [viewing, setViewing] = useState(null);
 
   const add = async (e) => {
     e.preventDefault();
@@ -90,11 +92,13 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
       <ul className="member-list">
         {sorted.map((m) => (
           <li key={m.user_id}>
-            <Avatar profile={m.profile} size={32} />
-            <div className="member-meta">
-              <strong>{m.profile?.full_name}{m.user_id === user.id ? ' (you)' : ''}</strong>
-              <span className="muted small">{m.profile?.email}</span>
-            </div>
+            <button type="button" className="member-who" onClick={() => setViewing(m.user_id)} title="View profile">
+              <Avatar profile={m.profile} size={32} />
+              <span className="member-meta">
+                <strong>{m.profile?.full_name}{m.user_id === user.id ? ' (you)' : ''}</strong>
+                <span className="muted small">{m.profile?.job_title ? `${m.profile.job_title} · ${m.profile.email}` : m.profile?.email}</span>
+              </span>
+            </button>
             {isOwner ? (
               <label className="field-select role-select" title={m.role === 'owner' && ownerCount === 1 ? 'A project needs at least one owner' : undefined}>
                 <span>{m.role === 'owner' ? 'Owner' : 'Member'}</span>
@@ -118,6 +122,7 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
           </li>
         ))}
       </ul>
+      {viewing && <ProfileCard userId={viewing} onClose={() => setViewing(null)} />}
     </Modal>
   );
 }
