@@ -1,10 +1,10 @@
 /* Kahon — brand tokens */
 :root {
-  --kahon-ink: #13341F;
-  --kahon-sub: #4A6B56;
-  --kahon-accent: #3DBE6B;
-  --kahon-accent-text: #15703C;
-  --kahon-light: #F4F8F5;
-  --kahon-mist: #D3E2D8;
-  --kahon-shade: #0C2415;
+  --kahon-ink: #3b2a1d;
+  --kahon-sub: #7a5a49;
+  --kahon-accent: #b8885d;
+  --kahon-accent-text: #845c35;
+  --kahon-light: #d1bfb0;
+  --kahon-mist: #e8dfd8;
+  --kahon-shade: #241711;
 }

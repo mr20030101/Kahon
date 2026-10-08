@@ -1,28 +1,28 @@
 /* ============ Tokens ============ */
 :root {
   /* Brand palette (public/brand-tokens.css) */
-  --kahon-ink: #13341F;
-  --kahon-shade: #0C2415;
-  --kahon-sub: #4A6B56;
-  --kahon-accent: #3DBE6B;
-  --kahon-accent-text: #15703C;
-  --kahon-mist: #D3E2D8;
-  --kahon-light: #F4F8F5;
+  --kahon-ink: #3b2a1d;
+  --kahon-shade: #241711;
+  --kahon-sub: #7a5a49;
+  --kahon-accent: #b8885d;
+  --kahon-accent-text: #845c35;
+  --kahon-mist: #e8dfd8;
+  --kahon-light: #d1bfb0;
 
   --spruce: var(--kahon-ink);
-  --spruce-2: #1C4529;
-  --spruce-3: #285738;
+  --spruce-2: #5b3d2d;
+  --spruce-3: #704f3d;
   --mango: var(--kahon-accent);
-  --mango-soft: #DDF3E4;
-  --amber-soft: #FCEFD2;
+  --mango-soft: #f0e1d4;
+  --amber-soft: #f5e8d8;
   --paper: var(--kahon-light);
-  --surface: #FFFFFF;
-  --surface-2: #EBF2ED;
-  --ink: #17261C;
+  --surface: #f7f1eb;
+  --surface-2: #efe4db;
+  --ink: #3b2a1d;
   --ink-2: var(--kahon-sub);
-  --ink-3: #7A8F80;
-  --line: #D9E4DC;
-  --line-2: #C5D4C9;
+  --ink-3: #8b6f5d;
+  --line: #dcc9b9;
+  --line-2: #c8ae94;
   --primary: var(--kahon-accent-text);
   --primary-ink: #FFFFFF;
   --danger: #B9382A;
@@ -44,57 +44,57 @@
    Display (data-theme on <html>, set by src/lib/theme.js and the snippet in index.html). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #0F1A13;
-    --surface: #16241B;
-    --surface-2: #1D2D22;
-    --ink: #E6EEE8;
-    --ink-2: #A9B9AD;
-    --ink-3: #7F9184;
-    --line: #2A3B2F;
-    --line-2: #36493B;
+    --paper: #d1bfb0;
+    --surface: #f7f1eb;
+    --surface-2: #efe4db;
+    --ink: #3b2a1d;
+    --ink-2: #7a5a49;
+    --ink-3: #8b6f5d;
+    --line: #dcc9b9;
+    --line-2: #c8ae94;
     --primary: var(--kahon-accent);
-    --primary-ink: var(--kahon-shade);
-    --mango-soft: #1E3A28;
-    --amber-soft: #3A3020;
-    --danger: #F08070;
-    --danger-soft: #3A2220;
-    --soon: #E5B54A;
+    --primary-ink: #fff;
+    --mango-soft: #f0e1d4;
+    --amber-soft: #f5e8d8;
+    --danger: #B9382A;
+    --danger-soft: #FBE6E2;
+    --soon: #9A6A00;
     --spruce: var(--kahon-shade);
-    --spruce-2: #133220;
-    --spruce-3: #1E4630;
+    --spruce-2: #5b3d2d;
+    --spruce-3: #704f3d;
     --mark-body: var(--kahon-light);
     --mark-shade: var(--kahon-mist);
     --wordmark: #FFFFFF;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-lift: 0 12px 34px rgba(0, 0, 0, 0.5);
-    color-scheme: dark;
+    --shadow: 0 1px 2px rgba(28, 17, 13, 0.18);
+    --shadow-lift: 0 12px 34px rgba(28, 17, 13, 0.2);
+    color-scheme: light;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #0F1A13;
-  --surface: #16241B;
-  --surface-2: #1D2D22;
-  --ink: #E6EEE8;
-  --ink-2: #A9B9AD;
-  --ink-3: #7F9184;
-  --line: #2A3B2F;
-  --line-2: #36493B;
+  --paper: #d1bfb0;
+  --surface: #f7f1eb;
+  --surface-2: #efe4db;
+  --ink: #3b2a1d;
+  --ink-2: #7a5a49;
+  --ink-3: #8b6f5d;
+  --line: #dcc9b9;
+  --line-2: #c8ae94;
   --primary: var(--kahon-accent);
-  --primary-ink: var(--kahon-shade);
-  --mango-soft: #1E3A28;
-  --amber-soft: #3A3020;
-  --danger: #F08070;
-  --danger-soft: #3A2220;
-  --soon: #E5B54A;
+  --primary-ink: #fff;
+  --mango-soft: #f0e1d4;
+  --amber-soft: #f5e8d8;
+  --danger: #B9382A;
+  --danger-soft: #FBE6E2;
+  --soon: #9A6A00;
   --spruce: var(--kahon-shade);
-  --spruce-2: #133220;
-  --spruce-3: #1E4630;
+  --spruce-2: #5b3d2d;
+  --spruce-3: #704f3d;
   --mark-body: var(--kahon-light);
   --mark-shade: var(--kahon-mist);
   --wordmark: #FFFFFF;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-lift: 0 12px 34px rgba(0, 0, 0, 0.5);
-  color-scheme: dark;
+  --shadow: 0 1px 2px rgba(28, 17, 13, 0.18);
+  --shadow-lift: 0 12px 34px rgba(28, 17, 13, 0.2);
+  color-scheme: light;
 }
 
 /* The mark sits on dark grounds here, so use the inverse colours. */

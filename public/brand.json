@@ -2,13 +2,13 @@
   "name": "Kahon",
   "slug": "kahon",
   "colors": {
-    "ink": "#13341F",
-    "sub": "#4A6B56",
-    "accent": "#3DBE6B",
-    "accent_text": "#15703C",
-    "light": "#F4F8F5",
-    "mist": "#D3E2D8",
-    "shade": "#0C2415"
+    "ink": "#3b2a1d",
+    "sub": "#7a5a49",
+    "accent": "#b8885d",
+    "accent_text": "#845c35",
+    "light": "#d1bfb0",
+    "mist": "#e8dfd8",
+    "shade": "#241711"
   },
   "wordmark": {
     "primary": {

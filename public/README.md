@@ -44,20 +44,20 @@ Never behind body copy.
 
 | Name | Token | HEX | CMYK (approx.) |
 | --- | --- | --- | --- |
-| Ink | `--kahon-ink` | #13341F | 63 / 0 / 40 / 80 |
-| Shade | `--kahon-shade` | #0C2415 | 67 / 0 / 42 / 86 |
-| Sub | `--kahon-sub` | #4A6B56 | 31 / 0 / 20 / 58 |
-| Sprout | `--kahon-accent` | #3DBE6B | 68 / 0 / 44 / 25 |
-| Sprout Deep | `--kahon-accent-text` | #15703C | 81 / 0 / 46 / 56 |
-| Mist | `--kahon-mist` | #D3E2D8 | 7 / 0 / 4 / 11 |
-| Paper | `--kahon-light` | #F4F8F5 | 2 / 0 / 1 / 3 |
+| Ink | `--kahon-ink` | #3b2a1d | 0 / 19 / 34 / 77 |
+| Shade | `--kahon-shade` | #241711 | 0 / 27 / 31 / 85 |
+| Sub | `--kahon-sub` | #7a5a49 | 0 / 24 / 35 / 48 |
+| Sand | `--kahon-accent` | #b8885d | 0 / 18 / 33 / 46 |
+| Sand Deep | `--kahon-accent-text` | #845c35 | 0 / 22 / 44 / 48 |
+| Drift | `--kahon-mist` | #e8dfd8 | 2 / 5 / 10 / 9 |
+| Paper | `--kahon-light` | #d1bfb0 | 0 / 8 / 19 / 18 |
 
-Sprout `#3DBE6B` does not pass contrast for text on light grounds — use Sprout
-Deep `#15703C` for links and coloured type, and keep Sprout for fills, the mark,
-and status dots.
+Sand `#b8885d` is the primary fill; use Sand Deep `#845c35` for links and
+coloured type on light grounds, and keep Sand for fills, the mark, and status
+dots.
 
 CMYK figures are arithmetic conversions, not press-matched. For spot work,
-Pantone 354 C is in the neighbourhood of Sprout — check it against a physical
+Pantone 7406 C is a close starting point for Sand — check it against a physical
 swatch book first.
 
 ## Rules
