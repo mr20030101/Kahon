@@ -31,6 +31,11 @@ export default function Sidebar({ open, onNavigate }) {
           <Icon.bell /> Inbox
           {unread > 0 && <span className="nav-badge" aria-label={`${unread} unread`}>{unread > 49 ? '50+' : unread}</span>}
         </NavLink>
+        {profile?.is_superadmin && (
+          <NavLink to="/admin/users" className="nav-item" onClick={onNavigate}>
+            <Icon.users /> All users
+          </NavLink>
+        )}
       </nav>
 
       <div className="side-head">

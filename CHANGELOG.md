@@ -14,6 +14,10 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Super admins can view all workspace accounts, email/MFA status, project counts and sign-in dates from **All users**.
+
 ## 0.4.1 — 2026-10-08
 
 ### Fixed
