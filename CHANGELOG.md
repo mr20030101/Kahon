@@ -16,6 +16,8 @@ before versioning was set up shipped as 0.1.0.
 
 ### Added
 
+- **Home** page: your day in one line, a week strip of what's due (pick a day to see it), **Up next** (overdue, today and this week, closable right there), **Waiting on others** (open tasks you handed off), project cards with progress and status, your @mentions, private **Notes** and a **Team pulse**. My tasks moves to `/my-tasks`. Notes need `supabase/migrations/20261009_home_notepad.sql`; until it's run, they're kept in the browser only.
+- **My tasks** has List, Board and Calendar views. The list is a table with due date, project, collaborators and priority columns, grouped by due date.
 - Super admins can view all workspace accounts, email/MFA status, project counts and sign-in dates from **All users**.
 - Project roles: each member is a **Project admin**, **Editor**, **Commenter** or **Viewer**, chosen when adding them and changeable from **Members**. Commenters can read and comment; viewers can only read.
 - People assigned to a task are notified in their inbox and by email when someone changes it (renames, completes, reschedules, moves it, and so on), as they already were for comments.

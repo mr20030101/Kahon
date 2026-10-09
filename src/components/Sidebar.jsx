@@ -25,6 +25,9 @@ export default function Sidebar({ open, onNavigate }) {
 
       <nav className="side-nav">
         <NavLink to="/" end className="nav-item" onClick={onNavigate}>
+          <Icon.home /> Home
+        </NavLink>
+        <NavLink to="/my-tasks" className="nav-item" onClick={onNavigate}>
           <Icon.check2 /> My tasks
         </NavLink>
         <NavLink to="/inbox" className="nav-item" onClick={onNavigate}>

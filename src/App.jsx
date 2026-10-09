@@ -8,6 +8,7 @@ import Footer from './components/Footer';
 import UpdateBanner from './components/UpdateBanner';
 import Sidebar from './components/Sidebar';
 import { Icon, Lockup, Logo } from './components/ui';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import MyTasks from './pages/MyTasks';
 import ProjectPage from './pages/ProjectPage';
@@ -37,7 +38,8 @@ function Shell() {
             <Lockup height={27} />
           </div>
           <Routes>
-            <Route path="/" element={<MyTasks />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/my-tasks" element={<MyTasks />} />
             <Route path="/inbox" element={<Inbox />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/p/:projectId" element={<ProjectPage />} />

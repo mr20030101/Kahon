@@ -10,6 +10,7 @@ const svg = (d, extra = {}) => (props) => (
 
 export const Icon = {
   plus: svg(<path d="M12 5v14M5 12h14" />),
+  home: svg(<path d="M4 11l8-6.5 8 6.5M6 9.5V20h4.5v-5.5h3V20H18V9.5" />),
   x: svg(<path d="M6 6l12 12M18 6L6 18" />),
   list: svg(<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />),
   board: svg(<><rect x="3" y="4" width="5" height="16" rx="1.5" /><rect x="10" y="4" width="5" height="11" rx="1.5" /><rect x="17" y="4" width="4" height="7" rx="1.5" /></>),
