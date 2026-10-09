@@ -6,7 +6,7 @@
 // it's on), be a member of the project, and (for comments) be the comment's author.
 //
 // Secrets: RESEND_API_KEY, EMAIL_FROM ("Kahon <notifications@yourdomain.com>"),
-// APP_URL ("https://kahon.vercel.app"). SUPABASE_URL, SUPABASE_ANON_KEY and
+// APP_URL ("https://kahon.vercel.app"). SUPABASE_URL and
 // SUPABASE_SERVICE_ROLE_KEY are provided by Supabase automatically.
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';

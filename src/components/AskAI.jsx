@@ -32,8 +32,7 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
     setAnswer({ kind, text: '', done: false, error: null });
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(FUNCTION_URL, {
+      const send = (session) => fetch(FUNCTION_URL, {
         method: 'POST',
         signal: controller.signal,
         headers: {
@@ -43,6 +42,13 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
         },
         body: JSON.stringify({ task_id: taskId, kind, question: text }),
       });
+      const { data: { session } } = await supabase.auth.getSession();
+      let res = await send(session);
+      // A token that went stale while the tab was idle: refresh it once and retry.
+      if (res.status === 401) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session) res = await send(refreshed.session);
+      }
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));

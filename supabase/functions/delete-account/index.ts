@@ -10,7 +10,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const CORS = {
@@ -28,12 +27,12 @@ Deno.serve(async (req) => {
 
   try {
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
-    const { data: { user } } = await userClient.auth.getUser();
+    // Checked with the service role client, so it works whether or not the legacy anon key is enabled.
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const { data: { user } } = token ? await admin.auth.getUser(token) : { data: { user: null } };
     if (!user) return json({ error: 'Sign in to delete your account.' }, 401);
 
     // With two-factor on, deleting needs a session that passed it.
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const { data: factors } = await admin.auth.admin.mfa.listFactors({ userId: user.id });
     const aal = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).aal;
     if (factors?.factors?.some((f) => f.status === 'verified') && aal !== 'aal2') {

@@ -4,8 +4,8 @@
 // The answer is streamed back as plain text.
 //
 // Secrets: GROQ_API_KEY (required), GROQ_MODEL (optional, default openai/gpt-oss-120b),
-// AI_DAILY_LIMIT (optional, requests per person per day, default 30). SUPABASE_URL,
-// SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase automatically.
+// AI_DAILY_LIMIT (optional, requests per person per day, default 30). SUPABASE_URL
+// and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase automatically.
 
 import Groq from 'npm:groq-sdk@^1.6.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';

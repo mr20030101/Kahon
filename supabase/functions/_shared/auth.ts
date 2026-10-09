@@ -5,7 +5,6 @@
 import { createClient, type SupabaseClient, type User } from 'npm:@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 export const CORS = {
@@ -32,11 +31,16 @@ function tokenAal(token: string): string | undefined {
 /** The signed-in caller and a service-role client, or a Response to return when they can't proceed. */
 export async function requireUser(req: Request): Promise<{ user: User; admin: SupabaseClient } | { response: Response }> {
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return { response: json({ error: 'Sign in first.' }, 401) };
+  if (!token || token === 'undefined') return { response: json({ error: 'Sign in first.' }, 401) };
 
+  // Checked with the service role client, so it works whether or not the legacy anon key is enabled.
   const admin = adminClient();
+  const { data: { user }, error } = await admin.auth.getUser(token);
+  if (!user) {
+    console.error('requireUser: token rejected', error?.message);
+    return { response: json({ error: 'Your session has expired. Refresh the page and try again.' }, 401) };
+  }
+
   const { data } = await admin.auth.admin.mfa.listFactors({ userId: user.id });
   if (data?.factors?.some((f) => f.status === 'verified') && tokenAal(token) !== 'aal2') {
     return { response: json({ error: 'Enter your two-factor code first.' }, 403) };
