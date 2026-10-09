@@ -8,6 +8,7 @@ import { Avatar, Icon } from '../components/ui';
 const WHAT = {
   assigned: 'assigned you',
   comment: 'commented on',
+  updated: 'updated',
   mention: 'mentioned you on',
   added_to_project: 'added you to',
   due_soon: 'Due soon:',
@@ -46,7 +47,7 @@ export default function Inbox() {
       {items?.length === 0 && (
         <div className="empty-state">
           <h3>Nothing here yet</h3>
-          <p className="muted">When someone assigns you a task, mentions you, comments on your work, or a task is due, it shows up here.</p>
+          <p className="muted">When someone assigns you a task, mentions you, comments on or changes your work, or a task is due, it shows up here.</p>
         </div>
       )}
       <ul className="inbox">

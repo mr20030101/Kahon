@@ -7,7 +7,8 @@ Built with **React (Vite)**, **Supabase** (Postgres, Auth, Realtime) and deploye
 ## Features
 
 - Email and password accounts
-- Projects with a color, owner and members (owner adds teammates by email)
+- Projects with a color and members, each with a role: **Project admin**, **Editor**, **Commenter** or **Viewer**
+- Assignees hear about comments on and changes to their tasks, in the inbox and by email
 - **List view** with inline editing of assignee, due date and priority
 - **Board view** with drag and drop between and within sections (mouse, touch and keyboard)
 - Task panel: description, subtasks, comments, section, completion
@@ -84,6 +85,7 @@ Kahon sends two kinds of email, both through [Resend](https://resend.com) (free 
 ### Notifications (Edge Function)
 
 1. Run `supabase/migrations/20261008_email_notifications.sql` in the **SQL Editor** (fresh installs get it from `schema.sql`).
+   For project roles and task update notifications, also run `supabase/migrations/20261009_project_roles.sql`.
 2. Deploy the function with the Supabase CLI (`npx` downloads it; nothing to install). Your project ref is the subdomain of your Supabase URL.
 
    ```bash
@@ -175,7 +177,9 @@ src/
 
 - **Ordering** uses fractional positions: moving a task writes one number between its new neighbours, so only that row updates.
 - **Creating a project** calls the `create_project` function, which creates the project, makes you owner and adds three starter sections in one transaction.
-- **Adding members** calls `add_member_by_email`, which only the owner can run and which only finds people who already have an account.
+- **Adding members** calls `add_member_by_email` with a role, which only a project admin can run. People without an account get an invitation and join with that role when they sign up.
+- **Roles** are enforced by row level security, not just the UI: `can_edit()` (admins and editors) guards tasks, sections, labels, assignees and attachments; `can_comment()` (also commenters) guards comments. Viewers can only read. `owner` in the database is "Project admin" in the app.
+- **Task update notifications**: a trigger puts one "updated" item in each assignee's inbox (later changes bump it rather than adding more), and the app asks the `notify` function to email them a list of what changed, at most once per task every 10 minutes.
 
 ## Ideas for next steps
 

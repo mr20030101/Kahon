@@ -747,6 +747,45 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .role-select:has(select:disabled)::after { display: none; }
 .role-select:has(select:disabled):hover { background: none; }
 .role-select select:disabled { cursor: default; }
+button.role-select { flex: none; white-space: nowrap; }
+button.role-select:disabled { cursor: default; border-color: transparent; }
+button.role-select:disabled::after { display: none; }
+button.role-select:disabled:hover { background: none; }
+.invite-role { flex: none; height: 40px; padding: 0 12px; font-size: 14px; }
+.role-menu {
+  position: fixed; z-index: 70; overflow-y: auto; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: var(--shadow-lift); padding: 6px;
+}
+.role-option { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 10px 12px 10px 6px; border-radius: 8px; text-align: left; color: var(--ink); }
+.role-option + .role-option { margin-top: 2px; }
+.role-option:hover, .role-option:focus-visible { background: var(--surface-2); outline: none; }
+.role-option.is-danger { margin-top: 6px; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; padding-top: 12px; }
+.role-option.is-danger strong, .role-option.is-danger .role-option-check { color: var(--danger); }
+.role-option-check { flex: none; width: 20px; display: grid; place-items: center; padding-top: 1px; color: var(--primary); }
+.role-option-text { display: grid; gap: 2px; min-width: 0; }
+.role-option-text strong { font-size: 14px; font-weight: 600; }
+.role-option-text span { font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+@media (max-width: 520px) {
+  .invite-row { flex-wrap: wrap; }
+  .invite-row .input { flex-basis: 100%; }
+}
+
+/* Read-only fields (commenters and viewers): show the value, drop the control affordances. */
+.field-select:has(select:disabled, input:disabled) { cursor: default; }
+.field-select:has(select:disabled, input:disabled):hover { background: none; }
+.field-select select:disabled, .field-select input:disabled { cursor: default; pointer-events: none; }
+.check:disabled { cursor: default; }
+.check:disabled:hover { border-color: var(--ink-3); }
+.check:disabled:hover svg { opacity: 0; }
+.check.is-done:disabled:hover { border-color: var(--mango); }
+.check.is-done:disabled:hover svg { opacity: 1; }
+.chip-field:disabled { cursor: default; color: inherit; }
+.chip-field:disabled:hover { background: none; }
+.description.is-view.is-readonly { cursor: auto; }
+.description.is-view.is-readonly:hover { background: none; border-color: transparent; }
+.btn-complete:disabled { cursor: default; }
+.access-chip { cursor: default; }
+.access-chip:hover { color: var(--ink-2); }
 
 /* ============ Toasts ============ */
 .toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: grid; gap: 8px; z-index: 80; pointer-events: none; }

@@ -17,6 +17,12 @@ before versioning was set up shipped as 0.1.0.
 ### Added
 
 - Super admins can view all workspace accounts, email/MFA status, project counts and sign-in dates from **All users**.
+- Project roles: each member is a **Project admin**, **Editor**, **Commenter** or **Viewer**, chosen when adding them and changeable from **Members**. Commenters can read and comment; viewers can only read.
+- People assigned to a task are notified in their inbox and by email when someone changes it (renames, completes, reschedules, moves it, and so on), as they already were for comments.
+
+### Changed
+
+- Existing members are now **Editors** and owners are **Project admins**; what they can do is unchanged. Requires running `supabase/migrations/20261009_project_roles.sql` and redeploying the `notify` function.
 
 ## 0.4.1 — 2026-10-08
 

@@ -12,7 +12,8 @@ import RichText from './RichText';
 import { ActivityLog, ExtraAssignees, LabelPicker, MoveTaskModal, RepeatSelect } from './TaskExtras';
 import { AssigneeSelect, Avatar, Check, DueInput, Icon, InlineAdd, PrioritySelect } from './ui';
 import { confirmDialog, isDialogOpen } from '../lib/dialog';
-import { notify } from '../lib/notify';
+import { notify, notifyTaskUpdate } from '../lib/notify';
+import { canComment, canEdit } from '../lib/roles';
 import { PROFILE_BRIEF } from '../lib/profiles';
 
 const COMMENT_SELECT = `id, body, created_at, edited_at, author_id, author:profiles(${PROFILE_BRIEF})`;
@@ -124,8 +125,9 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
       setSubtasks((list) => list.map((s) => ({ ...s, completed: true })));
     }
     const { error } = await supabase.from('tasks').update(patch).eq('id', taskId);
-    if (error) toast(`Could not save: ${error.message}`, 'error');
-    else if (patch.assignee_id) notify('task_assigned', { task_id: taskId });
+    if (error) return toast(`Could not save: ${error.message}`, 'error');
+    if (patch.assignee_id) notify('task_assigned', { task_id: taskId });
+    notifyTaskUpdate(taskId, patch);
   };
 
   const saveTitle = () => {
@@ -155,14 +157,16 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
     onPatch?.(sub.id, { completed });
     const { error } = await supabase.from('tasks').update({ completed }).eq('id', sub.id);
     if (error) toast(error.message, 'error');
+    else notifyTaskUpdate(sub.id, { completed });
   };
 
   const saveSubtask = async (sub, patch) => {
     setSubtasks((list) => list.map((x) => (x.id === sub.id ? { ...x, ...patch } : x)));
     onPatch?.(sub.id, patch);
     const { error } = await supabase.from('tasks').update(patch).eq('id', sub.id);
-    if (error) toast(error.message, 'error');
-    else if (patch.assignee_id) notify('task_assigned', { task_id: sub.id });
+    if (error) return toast(error.message, 'error');
+    if (patch.assignee_id) notify('task_assigned', { task_id: sub.id });
+    notifyTaskUpdate(sub.id, patch);
   };
 
   const duplicateTask = async () => {
@@ -260,8 +264,15 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
     if (error) toast(error.message, 'error');
   };
 
+  const creator = members.find((m) => m.user_id === task?.created_by)?.profile;
+  const myRole = members.find((m) => m.user_id === user.id)?.role;
+  const isOwner = myRole === 'owner';
+  // Commenters and viewers see everything but can't change it; viewers can't comment either.
+  const editable = canEdit(myRole);
+  const commentable = canComment(myRole);
+
   // Drop files anywhere on the panel to attach them.
-  const isFileDrag = (e) => status === 'ready' && [...e.dataTransfer.types].includes('Files');
+  const isFileDrag = (e) => status === 'ready' && editable && [...e.dataTransfer.types].includes('Files');
   const dropProps = {
     onDragOver: (e) => {
       if (!isFileDrag(e)) return;
@@ -280,8 +291,6 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
     },
   };
 
-  const creator = members.find((m) => m.user_id === task?.created_by)?.profile;
-  const isOwner = members.some((m) => m.user_id === user.id && m.role === 'owner');
 
   return (
     <>
@@ -296,8 +305,8 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
         )}
         <div className="panel-bar">
           {status === 'ready' && (
-            <button className={`btn btn-complete${task.completed ? ' is-done' : ''}`} onClick={() => save({ completed: !task.completed })}>
-              <Check checked={task.completed} onChange={(v) => save({ completed: v })} />
+            <button className={`btn btn-complete${task.completed ? ' is-done' : ''}`} onClick={() => save({ completed: !task.completed })} disabled={!editable}>
+              <Check checked={task.completed} onChange={(v) => save({ completed: v })} disabled={!editable} />
               {task.completed ? 'Completed' : 'Mark complete'}
             </button>
           )}
@@ -307,12 +316,12 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
               <button className="icon-btn" onClick={() => setShowMenu((v) => !v)} aria-label="Task options" aria-expanded={showMenu} title="More"><Icon.more /></button>
               {showMenu && (
                 <div className="menu" onMouseLeave={() => setShowMenu(false)}>
-                  <button className="menu-item" onClick={duplicateTask}><Icon.copy /> Duplicate task</button>
-                  {!task.parent_id && (
+                  {editable && <button className="menu-item" onClick={duplicateTask}><Icon.copy /> Duplicate task</button>}
+                  {editable && !task.parent_id && (
                     <button className="menu-item" onClick={() => { setShowMenu(false); setMoving(true); }}><Icon.move /> Move to project…</button>
                   )}
                   <button className="menu-item" onClick={copyLink}><Icon.link /> Copy link</button>
-                  <button className="menu-item danger" onClick={() => { setShowMenu(false); deleteTask(); }}><Icon.trash /> Delete task</button>
+                  {editable && <button className="menu-item danger" onClick={() => { setShowMenu(false); deleteTask(); }}><Icon.trash /> Delete task</button>}
                 </div>
               )}
             </div>
@@ -340,6 +349,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
             <textarea
               className="panel-title"
               value={titleDraft}
+              readOnly={!editable}
               rows={1}
               onChange={(e) => setTitleDraft(e.target.value)}
               onBlur={saveTitle}
@@ -354,19 +364,19 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
 
             <dl className="fields">
               <dt>Assignee</dt>
-              <dd><AssigneeSelect value={task.assignee_id} members={members} onChange={(v) => save({ assignee_id: v })} /></dd>
+              <dd><AssigneeSelect value={task.assignee_id} members={members} onChange={(v) => save({ assignee_id: v })} disabled={!editable} /></dd>
               <dt>Also assigned</dt>
-              <dd><ExtraAssignees taskId={taskId} members={members} mainAssignee={task.assignee_id} /></dd>
+              <dd><ExtraAssignees taskId={taskId} members={members} mainAssignee={task.assignee_id} readOnly={!editable} /></dd>
               <dt>Due date</dt>
-              <dd><DueInput value={task.due_date} completed={task.completed} onChange={(v) => save({ due_date: v })} /></dd>
+              <dd><DueInput value={task.due_date} completed={task.completed} onChange={(v) => save({ due_date: v })} disabled={!editable} /></dd>
               <dt>Priority</dt>
-              <dd><PrioritySelect value={task.priority} onChange={(v) => save({ priority: v })} /></dd>
+              <dd><PrioritySelect value={task.priority} onChange={(v) => save({ priority: v })} disabled={!editable} /></dd>
               <dt>Labels</dt>
-              <dd><LabelPicker taskId={taskId} projectId={task.project_id} /></dd>
+              <dd><LabelPicker taskId={taskId} projectId={task.project_id} readOnly={!editable} /></dd>
               {!task.parent_id && (
                 <>
                   <dt>Repeat</dt>
-                  <dd><RepeatSelect value={task.recurrence} onChange={(v) => save({ recurrence: v })} /></dd>
+                  <dd><RepeatSelect value={task.recurrence} onChange={(v) => save({ recurrence: v })} disabled={!editable} /></dd>
                 </>
               )}
               {!task.parent_id && (
@@ -375,7 +385,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                   <dd>
                     <label className="field-select">
                       <span>{sections.find((s) => s.id === task.section_id)?.name || 'None'}</span>
-                      <select value={task.section_id || ''} aria-label="Section"
+                      <select value={task.section_id || ''} aria-label="Section" disabled={!editable}
                         onChange={(e) => save({ section_id: e.target.value, position: Date.now() / 1000 })}>
                         {sections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                       </select>
@@ -386,7 +396,11 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
             </dl>
 
             <h4 className="panel-h">Description</h4>
-            {editingDesc || !descDraft.trim() ? (
+            {!editable ? (
+              descDraft.trim()
+                ? <div className="description is-view is-readonly"><RichText text={descDraft} /></div>
+                : <p className="muted small">No description.</p>
+            ) : editingDesc || !descDraft.trim() ? (
               <>
                 <textarea
                   className="description"
@@ -408,16 +422,16 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
               </div>
             )}
 
-            <Attachments ref={attachmentsRef} task={task} userId={user.id} canManageAll={isOwner} />
+            <Attachments ref={attachmentsRef} task={task} userId={user.id} canManageAll={isOwner} canEdit={editable} />
 
             <AskAI
               taskId={taskId}
-              canAddSubtasks={!task.parent_id}
+              canAddSubtasks={editable && !task.parent_id}
               onAddSubtasks={async (titles) => {
                 for (const title of titles) await addSubtask(title);
                 toast(`Added ${titles.length} subtask${titles.length === 1 ? '' : 's'}`);
               }}
-              onPostComment={(text) => postComment(text)}
+              onPostComment={commentable ? (text) => postComment(text) : undefined}
             />
 
             {!task.parent_id && (
@@ -426,17 +440,18 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                 <ul className="subtasks">
                   {subtasks.map((s) => (
                     <li key={s.id} className={s.completed ? 'is-done' : ''}>
-                      <Check checked={s.completed} onChange={(v) => toggleSubtask(s, v)} />
+                      <Check checked={s.completed} onChange={(v) => toggleSubtask(s, v)} disabled={!editable} />
                       <button type="button" className="grow subtask-title" onClick={() => navigate(`/p/${s.project_id}?task=${s.id}`)} title="Open subtask">{s.title}</button>
                       <span className="subtask-fields">
-                        <DueInput value={s.due_date} completed={s.completed} onChange={(v) => saveSubtask(s, { due_date: v })} />
-                        <AssigneeSelect compact value={s.assignee_id} members={members} onChange={(v) => saveSubtask(s, { assignee_id: v })} />
+                        <DueInput value={s.due_date} completed={s.completed} onChange={(v) => saveSubtask(s, { due_date: v })} disabled={!editable} />
+                        <AssigneeSelect compact value={s.assignee_id} members={members} onChange={(v) => saveSubtask(s, { assignee_id: v })} disabled={!editable} />
                       </span>
-                      <button className="icon-btn reveal" onClick={() => deleteSubtask(s)} aria-label="Delete subtask"><Icon.x /></button>
+                      {editable && <button className="icon-btn reveal" onClick={() => deleteSubtask(s)} aria-label="Delete subtask"><Icon.x /></button>}
                     </li>
                   ))}
                 </ul>
-                <InlineAdd label="Add subtask" placeholder="Subtask name" onAdd={addSubtask} />
+                {editable && <InlineAdd label="Add subtask" placeholder="Subtask name" onAdd={addSubtask} />}
+                {!editable && subtasks.length === 0 && <p className="muted small">No subtasks.</p>}
               </>
             )}
 
@@ -449,7 +464,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                     <div className="comment-head">
                       <strong>{c.author?.full_name || 'Someone'}</strong>
                       <span className="muted small">{timeAgo(c.created_at)}{c.edited_at ? ' · edited' : ''}</span>
-                      {c.author_id === user.id && editingComment !== c.id && (
+                      {c.author_id === user.id && commentable && editingComment !== c.id && (
                         <span className="comment-tools">
                           <button className="link-btn" onClick={() => setEditingComment(c.id)}>Edit</button>
                           <button className="link-btn" onClick={() => deleteComment(c)}>Delete</button>
@@ -472,16 +487,17 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                   </div>
                 </li>
               ))}
-              {comments.length === 0 && <li className="muted small">No comments yet. Ask a question or leave an update.</li>}
+              {comments.length === 0 && <li className="muted small">{commentable ? 'No comments yet. Ask a question or leave an update.' : 'No comments yet.'}</li>}
             </ul>
-            <div className="comment-box">
+            {!commentable && <p className="muted small">You're a viewer in this project, so you can read comments but not add them.</p>}
+            {commentable && <div className="comment-box">
               <MentionInput ref={commentRef} members={members} placeholder="Write a comment. Type @ to mention someone." rows={2}
                 onTextChange={setCommentText} onSubmit={() => postComment()} aria-label="Comment" />
               <div className="comment-actions">
                 <span className="hint">Ctrl + Enter to post</span>
                 <button className="btn btn-primary" onClick={() => postComment()} disabled={!commentText.trim()}>Comment</button>
               </div>
-            </div>
+            </div>}
 
             <button type="button" className="link-btn activity-toggle" onClick={() => setShowActivity((v) => !v)} aria-expanded={showActivity}>
               <Icon.history width="16" height="16" /> {showActivity ? 'Hide activity' : 'Show activity'}

@@ -17,6 +17,8 @@ import { APP_URL, type Email, plainMentions, sendEmail } from '../_shared/email.
 const DEDUPE_MINUTES = 10;
 // Re-sending an invitation is allowed this often.
 const INVITE_RESEND_MINUTES = 5;
+// A task_updated email lists the changes its sender made in this window.
+const CHANGES_MINUTES = 5;
 const MENTION = /@\[[^\]]{1,120}\]\(([0-9a-f-]{36})\)/g;
 
 type Admin = SupabaseClient;
@@ -72,6 +74,42 @@ const HANDLERS = {
         heading: 'You have a new task',
         intro: `${actor} assigned you a task in ${task.project.name}.`,
         quote: task.title,
+        cta: 'Open task',
+        url: `${APP_URL}/p/${task.project_id}?task=${task.id}`,
+      }),
+    });
+  },
+
+  // { task_id }: email the task's assignees what the caller just changed on it. Keyed by task,
+  // so a run of edits sends one email. Someone the caller just assigned gets task_assigned instead.
+  async task_updated(admin: Admin, actorId: string, { task_id }: { task_id?: string }) {
+    const task = await getTask(admin, task_id);
+    if (!task || !(await canEdit(admin, task.project_id, actorId))) return 0;
+    const since = new Date(Date.now() - CHANGES_MINUTES * 60_000).toISOString();
+    const { data: rows } = await admin.from('task_activity').select('field, new_value')
+      .eq('task_id', task.id).eq('actor_id', actorId).neq('field', 'created').gte('created_at', since)
+      .order('created_at');
+    if (!rows?.length) return 0;
+
+    // The latest change per field, in the order they were first made.
+    const latest = new Map<string, string | null>();
+    for (const r of rows) latest.set(r.field, r.new_value);
+    const assigned = latest.get('assignee') ?? null;
+    const { data: names } = assigned
+      ? await admin.from('profiles').select('full_name, email').eq('id', assigned).maybeSingle()
+      : { data: null };
+    const changes = [...latest].map(([field, value]) => describeChange(field, value, names?.full_name || names?.email));
+
+    const { data: extra } = await admin.from('task_assignees').select('user_id').eq('task_id', task.id);
+    const recipients = [task.assignee_id, ...(extra ?? []).map((a) => a.user_id)].filter((id) => id !== assigned);
+
+    return send(admin, {
+      kind: 'task_updated', refId: task.id, recipientIds: recipients, actorId,
+      build: (actor) => ({
+        subject: `${actor} updated "${task.title}"`,
+        heading: 'Task updated',
+        intro: `${actor} made changes to "${task.title}" in ${task.project.name}, a task you're assigned to.`,
+        quote: changes.join('\n'),
         cta: 'Open task',
         url: `${APP_URL}/p/${task.project_id}?task=${task.id}`,
       }),
@@ -187,6 +225,32 @@ async function isMember(admin: Admin, projectId: string, userId: string) {
   const { count } = await admin.from('project_members').select('user_id', { count: 'exact', head: true })
     .eq('project_id', projectId).eq('user_id', userId);
   return (count ?? 0) > 0;
+}
+
+// Project admins and editors; commenters and viewers can't change tasks.
+async function canEdit(admin: Admin, projectId: string, userId: string) {
+  const { count } = await admin.from('project_members').select('user_id', { count: 'exact', head: true })
+    .eq('project_id', projectId).eq('user_id', userId).in('role', ['owner', 'editor']);
+  return (count ?? 0) > 0;
+}
+
+const formatDate = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+
+// One line of a task_updated email, from a task_activity row.
+function describeChange(field: string, value: string | null, assigneeName?: string | null) {
+  switch (field) {
+    case 'title': return `Renamed to "${value}"`;
+    case 'description': return 'Edited the description';
+    case 'assignee': return value ? `Assigned to ${assigneeName || 'someone else'}` : 'Unassigned';
+    case 'due_date': return value ? `Due date set to ${formatDate(value)}` : 'Due date removed';
+    case 'priority': return value ? `Priority set to ${value}` : 'Priority removed';
+    case 'completed': return value === 'true' ? 'Marked complete' : 'Reopened';
+    case 'section': return `Moved to ${value}`;
+    case 'project': return `Moved to the ${value} project`;
+    case 'recurrence': return `Set to repeat ${value}`;
+    default: return `Changed ${field}`;
+  }
 }
 
 // Emails each recipient once (never the actor, never someone who opted out, never

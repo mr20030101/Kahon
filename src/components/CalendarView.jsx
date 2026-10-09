@@ -19,7 +19,7 @@ export function monthGrid(year, month) {
   });
 }
 
-export default function CalendarView({ tasks, hideCompleted, actions, onOpen, labels, labelsByTask }) {
+export default function CalendarView({ tasks, hideCompleted, actions, onOpen, labels, labelsByTask, readOnly }) {
   const today = new Date();
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() });
   const [dragOver, setDragOver] = useState(null);
@@ -68,12 +68,12 @@ export default function CalendarView({ tasks, hideCompleted, actions, onOpen, la
           return (
             <div key={key} role="gridcell"
               className={`calendar-day${outside ? ' is-outside' : ''}${dayDiff(key) === 0 ? ' is-today' : ''}${dragOver === key ? ' is-over' : ''}`}
-              onDragOver={(e) => { if (e.dataTransfer.types.includes('text/kahon-task')) { e.preventDefault(); setDragOver(key); } }}
+              onDragOver={(e) => { if (!readOnly && e.dataTransfer.types.includes('text/kahon-task')) { e.preventDefault(); setDragOver(key); } }}
               onDragLeave={() => setDragOver((k) => (k === key ? null : k))}
               onDrop={(e) => drop(e, key)}>
               <span className="calendar-date">{d.getDate()}</span>
               {items.map((t) => (
-                <button key={t.id} type="button" draggable className={`calendar-task${t.completed ? ' is-done' : ''}${!t.completed && dayDiff(key) < 0 ? ' is-late' : ''}`}
+                <button key={t.id} type="button" draggable={!readOnly} className={`calendar-task${t.completed ? ' is-done' : ''}${!t.completed && dayDiff(key) < 0 ? ' is-late' : ''}`}
                   onDragStart={(e) => e.dataTransfer.setData('text/kahon-task', t.id)} onClick={() => onOpen(t.id)} title={t.title}>
                   <span className="truncate">{t.title}</span>
                   <LabelChips ids={labelsByTask.get(t.id)} labels={labels} max={1} />

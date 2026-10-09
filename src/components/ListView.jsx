@@ -23,9 +23,9 @@ export function subtaskCounts(tasks) {
 const MEASURING = { droppable: { strategy: MeasuringStrategy.Always } };
 
 // Selection (for bulk actions) and per-task labels/assignees, shared with the rows.
-const ListContext = createContext({ selected: new Set(), toggle: () => {}, deco: {} });
+const ListContext = createContext({ selected: new Set(), toggle: () => {}, deco: {}, readOnly: false });
 
-export default function ListView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask }) {
+export default function ListView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask, readOnly }) {
   const [active, setActive] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
   const toggle = useCallback((id) => setSelected((cur) => {
@@ -35,8 +35,8 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
     return next;
   }), []);
   const memberById = useMemo(() => Object.fromEntries(members.map((m) => [m.user_id, m.profile])), [members]);
-  const ctx = useMemo(() => ({ selected, toggle, deco: { labels, labelsByTask, extrasByTask, memberById } }),
-    [selected, toggle, labels, labelsByTask, extrasByTask, memberById]);
+  const ctx = useMemo(() => ({ selected, toggle, readOnly, deco: { labels, labelsByTask, extrasByTask, memberById } }),
+    [selected, toggle, readOnly, labels, labelsByTask, extrasByTask, memberById]);
   const listRef = useRef(null);
   const counts = useMemo(() => subtaskCounts(tasks), [tasks]);
   const top = tasks.filter((t) => !t.parent_id && !(hideCompleted && t.completed));
@@ -90,9 +90,11 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
             />
           ))}
         </SortableContext>
-        <div className="add-section">
-          <InlineAdd label="Add section" placeholder="Section name" onAdd={actions.createSection} />
-        </div>
+        {!readOnly && (
+          <div className="add-section">
+            <InlineAdd label="Add section" placeholder="Section name" onAdd={actions.createSection} />
+          </div>
+        )}
       </div>
       <DragOverlay dropAnimation={{ duration: 180 }}>
         {active?.type === 'task' && (
@@ -113,7 +115,7 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
         )}
       </DragOverlay>
     </DndContext>
-    {chosen.length > 0 && (
+    {chosen.length > 0 && !readOnly && (
       <BulkBar ids={chosen} sections={sections} members={members} actions={actions} onClear={() => setSelected(new Set())} />
     )}
     </ListContext.Provider>
@@ -127,8 +129,9 @@ function Lifted({ as: Tag = 'div', rotate, children, ...props }) {
 }
 
 function ListSection({ section, tasks, counts, members, actions, onOpen, folded }) {
+  const { readOnly } = useContext(ListContext);
   const [collapsed, setCollapsed] = useState(false);
-  const sortable = useSortable({ id: sectionDndId(section.id), data: { type: 'section', sectionId: section.id } });
+  const sortable = useSortable({ id: sectionDndId(section.id), data: { type: 'section', sectionId: section.id }, disabled: readOnly });
   const { setNodeRef, isOver } = useDroppable({ id: columnDndId(section.id), data: { type: 'column', sectionId: section.id } });
   const style = { transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition };
   // While any section is being dragged, show headers only so sections are easy to reorder.
@@ -151,17 +154,19 @@ function ListSection({ section, tasks, counts, members, actions, onOpen, folded 
       className={`list-section${sortable.isDragging ? ' is-dragging' : ''}`}>
       <div ref={setNodeRef} className={isOver ? 'is-over' : undefined} data-settle={sectionDndId(section.id)}>
         <header className="list-section-head">
-          <button ref={sortable.setActivatorNodeRef} className="drag-handle" {...sortable.attributes} {...sortable.listeners}
-            aria-label={`Move section ${section.name}`} title="Drag to reorder">
-            <Icon.grip />
-          </button>
+          {!readOnly && (
+            <button ref={sortable.setActivatorNodeRef} className="drag-handle" {...sortable.attributes} {...sortable.listeners}
+              aria-label={`Move section ${section.name}`} title="Drag to reorder">
+              <Icon.grip />
+            </button>
+          )}
           <button className={`collapse${collapsed ? '' : ' is-open'}`} onClick={() => setCollapsed((c) => !c)}
             aria-expanded={!collapsed} aria-label={collapsed ? 'Expand section' : 'Collapse section'}>
             <Icon.chevron />
           </button>
-          <EditableText as="h3" value={section.name} onSave={(name) => actions.renameSection(section.id, name)} placeholder="Section name" />
+          <EditableText as="h3" value={section.name} onSave={(name) => actions.renameSection(section.id, name)} placeholder="Section name" disabled={readOnly} />
           <span className="count">{tasks.length}</span>
-          <button className="icon-btn reveal" onClick={remove} aria-label="Delete section" title="Delete section"><Icon.trash /></button>
+          {!readOnly && <button className="icon-btn reveal" onClick={remove} aria-label="Delete section" title="Delete section"><Icon.trash /></button>}
         </header>
         {showTasks && (
           <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -171,7 +176,7 @@ function ListSection({ section, tasks, counts, members, actions, onOpen, folded 
           </SortableContext>
         )}
       </div>
-      {showTasks && (
+      {showTasks && !readOnly && (
         <InlineAdd className="row-add" label="Add task" placeholder="Task name"
           onAdd={(title) => actions.createTask({ section_id: section.id, title })} />
       )}
@@ -180,24 +185,28 @@ function ListSection({ section, tasks, counts, members, actions, onOpen, folded 
 }
 
 function TaskRow({ task, count, members, actions, onOpen }) {
-  const { selected, toggle, deco } = useContext(ListContext);
+  const { selected, toggle, deco, readOnly } = useContext(ListContext);
   const isSelected = selected.has(task.id);
   const extras = (deco.extrasByTask?.get(task.id) ?? []).map((id) => deco.memberById?.[id]).filter(Boolean);
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id, data: { type: 'task', task } });
+    useSortable({ id: task.id, data: { type: 'task', task }, disabled: readOnly });
   const style = { transform: CSS.Translate.toString(transform), transition };
   const set = (patch) => actions.updateTask(task.id, patch);
   return (
     <div ref={setNodeRef} style={style} onClick={() => onOpen(task.id)} data-settle={task.id}
       className={`task-row row-grid${task.completed ? ' is-done' : ''}${isDragging ? ' is-dragging' : ''}${isSelected ? ' is-selected' : ''}`}>
       <div className="task-cell-title">
-        <input type="checkbox" className={`row-select${selected.size ? ' is-visible' : ''}`} checked={isSelected}
-          onClick={(e) => e.stopPropagation()} onChange={() => toggle(task.id)} aria-label={`Select ${task.title}`} />
-        <button ref={setActivatorNodeRef} className="drag-handle reveal" {...attributes} {...listeners}
-          onClick={(e) => e.stopPropagation()} aria-label={`Move ${task.title}`} title="Drag to move">
-          <Icon.grip />
-        </button>
-        <Check checked={task.completed} onChange={(v) => set({ completed: v })} />
+        {!readOnly && (
+          <>
+            <input type="checkbox" className={`row-select${selected.size ? ' is-visible' : ''}`} checked={isSelected}
+              onClick={(e) => e.stopPropagation()} onChange={() => toggle(task.id)} aria-label={`Select ${task.title}`} />
+            <button ref={setActivatorNodeRef} className="drag-handle reveal" {...attributes} {...listeners}
+              onClick={(e) => e.stopPropagation()} aria-label={`Move ${task.title}`} title="Drag to move">
+              <Icon.grip />
+            </button>
+          </>
+        )}
+        <Check checked={task.completed} onChange={(v) => set({ completed: v })} disabled={readOnly} />
         <button className="task-title" onClick={(e) => { e.stopPropagation(); onOpen(task.id); }}>{task.title}</button>
         <LabelChips ids={deco.labelsByTask?.get(task.id)} labels={deco.labels} max={2} />
         {task.recurrence && <span className="mini-count" title={`Repeats ${task.recurrence}`}><Icon.repeat width="14" height="14" /></span>}
@@ -212,9 +221,9 @@ function TaskRow({ task, count, members, actions, onOpen }) {
           </span>
         )}
       </div>
-      <AssigneeSelect value={task.assignee_id} members={members} onChange={(v) => set({ assignee_id: v })} />
-      <DueInput value={task.due_date} completed={task.completed} onChange={(v) => set({ due_date: v })} />
-      <PrioritySelect value={task.priority} onChange={(v) => set({ priority: v })} />
+      <AssigneeSelect value={task.assignee_id} members={members} onChange={(v) => set({ assignee_id: v })} disabled={readOnly} />
+      <DueInput value={task.due_date} completed={task.completed} onChange={(v) => set({ due_date: v })} disabled={readOnly} />
+      <PrioritySelect value={task.priority} onChange={(v) => set({ priority: v })} disabled={readOnly} />
     </div>
   );
 }

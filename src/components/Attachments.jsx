@@ -77,7 +77,8 @@ async function withUrls(rows) {
   }));
 }
 
-const Attachments = forwardRef(function Attachments({ task, userId, canManageAll }, ref) {
+// canEdit: editors and project admins may add files and remove their own; admins (canManageAll) remove any.
+const Attachments = forwardRef(function Attachments({ task, userId, canManageAll, canEdit = true }, ref) {
   const toast = useToast();
   const [items, setItems] = useState([]);
   const [uploading, setUploading] = useState(0);
@@ -148,6 +149,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
 
   // Paste a screenshot or copied files anywhere in the panel. Text pastes are left alone.
   useEffect(() => {
+    if (!canEdit) return undefined;
     const onPaste = (e) => {
       const files = [...(e.clipboardData?.files || [])];
       if (!files.length) return;
@@ -206,7 +208,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
               {a.downloadUrl && (
                 <a className="icon-btn" href={a.downloadUrl} aria-label={`Download ${a.name}`} title="Download"><Icon.download /></a>
               )}
-              {(a.created_by === userId || canManageAll) && (
+              {((canEdit && a.created_by === userId) || canManageAll) && (
                 <button className="icon-btn" onClick={() => remove(a)} aria-label={`Remove ${a.name}`} title="Remove">
                   <Icon.x />
                 </button>
@@ -215,11 +217,14 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
           </figure>
         ))}
         {Array.from({ length: uploading }, (_, i) => <div key={`up-${i}`} className="attachment attachment-pending" aria-label="Uploading" />)}
-        <button className="attachment-add" onClick={() => inputRef.current?.click()}>
-          <Icon.paperclip />
-          <span>Add files</span>
-          <span className="hint">Images, docs, sheets, slides</span>
-        </button>
+        {canEdit && (
+          <button className="attachment-add" onClick={() => inputRef.current?.click()}>
+            <Icon.paperclip />
+            <span>Add files</span>
+            <span className="hint">Images, docs, sheets, slides</span>
+          </button>
+        )}
+        {!canEdit && items.length === 0 && <p className="muted small">No attachments.</p>}
         <input
           ref={inputRef}
           type="file"

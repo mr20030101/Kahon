@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { dayDiff } from '../lib/dates';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { notifyTaskUpdate } from '../lib/notify';
+import { canEdit } from '../lib/roles';
 import TaskPanel from '../components/TaskPanel';
 import { Check, DueLabel, PriorityTag } from '../components/ui';
 
@@ -20,6 +22,7 @@ export default function MyTasks() {
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [tasks, setTasks] = useState([]);
+  const [roles, setRoles] = useState({}); // project id -> your role there
   const [loading, setLoading] = useState(true);
   const [showDone, setShowDone] = useState(false);
   const openId = params.get('task');
@@ -29,10 +32,12 @@ export default function MyTasks() {
     const select = '*, project:projects(id, name, color, archived_at)';
     const { data: extra } = await supabase.from('task_assignees').select('task_id').eq('user_id', user.id);
     const extraIds = (extra || []).map((r) => r.task_id);
-    const [main, also] = await Promise.all([
+    const [main, also, mine] = await Promise.all([
       supabase.from('tasks').select(select).eq('assignee_id', user.id),
       extraIds.length ? supabase.from('tasks').select(select).in('id', extraIds) : Promise.resolve({ data: [] }),
+      supabase.from('project_members').select('project_id, role').eq('user_id', user.id),
     ]);
+    setRoles(Object.fromEntries((mine.data || []).map((m) => [m.project_id, m.role])));
     const error = main.error || also.error;
     if (error) toast(error.message, 'error');
     else {
@@ -73,6 +78,8 @@ export default function MyTasks() {
     if (error) {
       toast(error.message, 'error');
       load();
+    } else {
+      notifyTaskUpdate(task.id, { completed });
     }
   };
 
@@ -110,7 +117,7 @@ export default function MyTasks() {
           <h2>{g.label} <span className="count">{g.items.length}</span></h2>
           {g.items.map((t) => (
             <div key={t.id} className={`my-row${t.completed ? ' is-done' : ''}`} onClick={() => open(t.id)}>
-              <Check checked={t.completed} onChange={(v) => toggle(t, v)} />
+              <Check checked={t.completed} onChange={(v) => toggle(t, v)} disabled={!canEdit(roles[t.project_id])} />
               <button className="task-title" onClick={(e) => { e.stopPropagation(); open(t.id); }}>{t.title}</button>
               <span className="spacer" />
               <PriorityTag value={t.priority} />

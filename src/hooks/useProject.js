@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { byPosition } from '../lib/position';
 import { useToast } from '../context/ToastContext';
 import { removeAttachmentFiles } from '../components/Attachments';
-import { notify } from '../lib/notify';
+import { notify, notifyTaskUpdate } from '../lib/notify';
 import { PROFILE_BRIEF } from '../lib/profiles';
 
 const EMPTY = {
@@ -131,8 +131,9 @@ export function useProject(projectId) {
         .forEach((t) => upsert('tasks', { id: t.id, completed: true }));
     }
     const { error } = await supabase.from('tasks').update(patch).eq('id', id);
-    if (error) fail(error);
-    else if (patch.assignee_id) notify('task_assigned', { task_id: id });
+    if (error) return fail(error);
+    if (patch.assignee_id) notify('task_assigned', { task_id: id });
+    notifyTaskUpdate(id, patch);
   }, [fail, upsert]);
 
   const patchLocal = useCallback((id, patch) => {
@@ -195,8 +196,11 @@ export function useProject(projectId) {
   const bulkUpdate = useCallback(async (ids, patch) => {
     ids.forEach((id) => upsert('tasks', { id, ...patch }));
     const { error } = await supabase.from('tasks').update(patch).in('id', ids);
-    if (error) fail(error);
-    else if (patch.assignee_id) ids.forEach((id) => notify('task_assigned', { task_id: id }));
+    if (error) return fail(error);
+    ids.forEach((id) => {
+      if (patch.assignee_id) notify('task_assigned', { task_id: id });
+      notifyTaskUpdate(id, patch);
+    });
   }, [fail, upsert]);
 
   const bulkDelete = useCallback(async (ids) => {

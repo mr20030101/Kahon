@@ -13,6 +13,7 @@ import ListView from '../components/ListView';
 import MembersModal from '../components/MembersModal';
 import ProjectDetails, { StatusPill } from '../components/ProjectDetails';
 import { formatDue } from '../lib/dates';
+import { canComment, canEdit } from '../lib/roles';
 import TaskPanel from '../components/TaskPanel';
 import { Avatar, EditableText, Icon } from '../components/ui';
 import { confirmDialog } from '../lib/dialog';
@@ -74,10 +75,13 @@ export default function ProjectPage() {
   }
 
   const { project, sections, tasks, members, labels, actions } = data;
+  const myRole = members.find((m) => m.user_id === user.id)?.role;
+  const isOwner = myRole === 'owner';
+  const readOnly = !canEdit(myRole);
   const matchCount = shownTasks.filter((t) => !t.parent_id && !(hideCompleted && t.completed)).length;
   const viewProps = {
     sections, tasks: shownTasks, members, hideCompleted, actions, onOpen: open,
-    labels, labelsByTask, extrasByTask,
+    labels, labelsByTask, extrasByTask, readOnly,
   };
 
   const toggleArchive = async () => {
@@ -101,7 +105,6 @@ export default function ProjectPage() {
     await refreshProjects();
     navigate(`/p/${id}`);
   };
-  const isOwner = members.some((m) => m.user_id === user.id && m.role === 'owner');
   const openTasks = tasks.filter((t) => !t.parent_id && !t.completed).length;
   const doneTasks = tasks.filter((t) => !t.parent_id && t.completed).length;
   const total = openTasks + doneTasks;
@@ -168,6 +171,13 @@ export default function ProjectPage() {
               Completed hidden <span aria-hidden="true">·</span> <strong>Show</strong>
             </button>
           )}
+          {readOnly && (
+            <span className="chip access-chip" title={canComment(myRole)
+              ? 'You can read and comment on tasks here, but not change them. A project admin can change your role.'
+              : 'You can read this project, but not change or comment on it. A project admin can change your role.'}>
+              <Icon.info width="15" height="15" /> {canComment(myRole) ? 'Can comment' : 'View only'}
+            </span>
+          )}
           <button className="btn btn-ghost" onClick={() => setShowDetails(true)} title="Project details">
             <Icon.info /> About
           </button>
@@ -190,9 +200,11 @@ export default function ProjectPage() {
                 <button className="menu-item" onClick={() => { setShowMenu(false); setShowDetails(true); }}>
                   <Icon.info /> Project details
                 </button>
-                <button className="menu-item" onClick={() => { setShowMenu(false); setShowLabels(true); }}>
-                  <Icon.tag /> Labels
-                </button>
+                {!readOnly && (
+                  <button className="menu-item" onClick={() => { setShowMenu(false); setShowLabels(true); }}>
+                    <Icon.tag /> Labels
+                  </button>
+                )}
                 <button className="menu-item" onClick={duplicate}>
                   <Icon.copy /> Duplicate project
                 </button>
@@ -232,7 +244,9 @@ export default function ProjectPage() {
       {sections.length === 0 && (
         <div className="empty-state">
           <h3>No sections yet</h3>
-          <p className="muted">Sections are the columns of your board, like To do or In review. Add one to start adding tasks.</p>
+          <p className="muted">{readOnly
+            ? 'Nothing has been added to this project yet.'
+            : 'Sections are the columns of your board, like To do or In review. Add one to start adding tasks.'}</p>
         </div>
       )}
 

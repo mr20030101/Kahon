@@ -103,9 +103,11 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
                   Add {suggestions.length} subtask{suggestions.length === 1 ? '' : 's'}
                 </button>
               )}
-              <button type="button" className="btn btn-ghost btn-small" onClick={() => { onPostComment(`AI:\n${answer.text.trim()}`); setAnswer(null); }}>
-                Post as comment
-              </button>
+              {onPostComment && (
+                <button type="button" className="btn btn-ghost btn-small" onClick={() => { onPostComment(`AI:\n${answer.text.trim()}`); setAnswer(null); }}>
+                  Post as comment
+                </button>
+              )}
               <button type="button" className="link-btn" onClick={() => setAnswer(null)}>Dismiss</button>
             </div>
           )}

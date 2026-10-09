@@ -21,7 +21,7 @@ function usePopover() {
 }
 
 /** Labels on a task, with a picker of the project's labels. */
-export function LabelPicker({ taskId, projectId }) {
+export function LabelPicker({ taskId, projectId, readOnly }) {
   const toast = useToast();
   const [labels, setLabels] = useState([]);
   const [chosen, setChosen] = useState([]);
@@ -57,10 +57,10 @@ export function LabelPicker({ taskId, projectId }) {
   const shown = labels.filter((l) => chosen.includes(l.id));
   return (
     <div className="menu-wrap" ref={ref}>
-      <button type="button" className="field-select chip-field" onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="field-select chip-field" onClick={() => setOpen((o) => !o)} disabled={readOnly}>
         {shown.length
           ? shown.map((l) => <span key={l.id} className="label-chip is-on" style={{ '--chip': l.color }}>{l.name}</span>)
-          : <span className="muted">Add labels</span>}
+          : <span className="muted">{readOnly ? 'None' : 'Add labels'}</span>}
       </button>
       {open && (
         <div className="menu picker-menu">
@@ -78,7 +78,7 @@ export function LabelPicker({ taskId, projectId }) {
 }
 
 /** People assigned alongside the main assignee. */
-export function ExtraAssignees({ taskId, members, mainAssignee }) {
+export function ExtraAssignees({ taskId, members, mainAssignee, readOnly }) {
   const toast = useToast();
   const [ids, setIds] = useState([]);
   const { open, setOpen, ref } = usePopover();
@@ -110,10 +110,10 @@ export function ExtraAssignees({ taskId, members, mainAssignee }) {
   const options = members.filter((m) => m.user_id !== mainAssignee);
   return (
     <div className="menu-wrap" ref={ref}>
-      <button type="button" className="field-select chip-field" onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="field-select chip-field" onClick={() => setOpen((o) => !o)} disabled={readOnly}>
         {ids.length
           ? ids.map((id) => profile(id) && <span key={id} className="person-chip"><Avatar profile={profile(id)} size={20} /> {profile(id).full_name}</span>)
-          : <span className="muted">Add people</span>}
+          : <span className="muted">{readOnly ? 'Nobody' : 'Add people'}</span>}
       </button>
       {open && (
         <div className="menu picker-menu">
@@ -139,13 +139,13 @@ export const REPEAT_OPTIONS = [
   { value: 'yearly', label: 'Every year' },
 ];
 
-export function RepeatSelect({ value, onChange }) {
+export function RepeatSelect({ value, onChange, disabled }) {
   const label = REPEAT_OPTIONS.find((o) => o.value === (value || ''))?.label;
   return (
     <label className="field-select" title="When you complete it, the next one is created with the due date moved on">
       {value && <Icon.repeat width="16" height="16" />}
       <span className={value ? '' : 'muted'}>{label}</span>
-      <select value={value || ''} onChange={(e) => onChange(e.target.value || null)} aria-label="Repeat">
+      <select value={value || ''} onChange={(e) => onChange(e.target.value || null)} aria-label="Repeat" disabled={disabled}>
         {REPEAT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </label>

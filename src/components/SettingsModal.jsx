@@ -226,8 +226,8 @@ function NotificationsSection() {
         <div>
           <strong>Email notifications</strong>
           <p className="muted small">
-            Emails when you're assigned a task, added to a project, or someone comments on a task you're
-            assigned to or created. Never for things you did yourself.
+            Emails when you're assigned a task, added to a project, someone comments on a task you're
+            assigned to or created, or changes a task you're assigned to. Never for things you did yourself.
           </p>
         </div>
         <label className="switch-toggle">

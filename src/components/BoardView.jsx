@@ -10,7 +10,7 @@ import { LabelChips } from './LabelsModal';
 import { Avatar, Check, DueLabel, EditableText, Icon, InlineAdd, PriorityTag } from './ui';
 import { confirmDialog } from '../lib/dialog';
 
-export default function BoardView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask }) {
+export default function BoardView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask, readOnly }) {
   const [active, setActive] = useState(null);
   const boardRef = useRef(null);
   const counts = useMemo(() => subtaskCounts(tasks), [tasks]);
@@ -66,12 +66,14 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
         <SortableContext items={sections.map((s) => sectionDndId(s.id))} strategy={horizontalListSortingStrategy}>
           {sections.map((s) => (
             <Column key={s.id} section={s} tasks={columnTasks(s.id)} counts={counts} memberById={memberById} deco={deco}
-              actions={actions} onOpen={onOpen} />
+              actions={actions} onOpen={onOpen} readOnly={readOnly} />
           ))}
         </SortableContext>
-        <div className="board-add-col">
-          <InlineAdd label="Add section" placeholder="Section name" onAdd={actions.createSection} />
-        </div>
+        {!readOnly && (
+          <div className="board-add-col">
+            <InlineAdd label="Add section" placeholder="Section name" onAdd={actions.createSection} />
+          </div>
+        )}
       </div>
       <DragOverlay dropAnimation={{ duration: 180 }}>
         {activeTask && <CardBody task={activeTask} count={counts[activeTask.id]} memberById={memberById} deco={deco} lifted />}
@@ -89,8 +91,8 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
   );
 }
 
-function Column({ section, tasks, counts, memberById, deco, actions, onOpen }) {
-  const sortable = useSortable({ id: sectionDndId(section.id), data: { type: 'section', sectionId: section.id } });
+function Column({ section, tasks, counts, memberById, deco, actions, onOpen, readOnly }) {
+  const sortable = useSortable({ id: sectionDndId(section.id), data: { type: 'section', sectionId: section.id }, disabled: readOnly });
   const { setNodeRef, isOver } = useDroppable({ id: columnDndId(section.id), data: { type: 'column', sectionId: section.id } });
   const style = { transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition };
 
@@ -110,30 +112,34 @@ function Column({ section, tasks, counts, memberById, deco, actions, onOpen }) {
     <section ref={sortable.setNodeRef} style={style}
       className={`column${isOver ? ' is-over' : ''}${sortable.isDragging ? ' is-dragging' : ''}`}>
       <header className="column-head" data-settle={sectionDndId(section.id)}>
-        <button ref={sortable.setActivatorNodeRef} className="drag-handle" {...sortable.attributes} {...sortable.listeners}
-          aria-label={`Move section ${section.name}`} title="Drag to reorder">
-          <Icon.grip />
-        </button>
-        <EditableText as="h3" value={section.name} onSave={(name) => actions.renameSection(section.id, name)} placeholder="Section name" />
+        {!readOnly && (
+          <button ref={sortable.setActivatorNodeRef} className="drag-handle" {...sortable.attributes} {...sortable.listeners}
+            aria-label={`Move section ${section.name}`} title="Drag to reorder">
+            <Icon.grip />
+          </button>
+        )}
+        <EditableText as="h3" value={section.name} onSave={(name) => actions.renameSection(section.id, name)} placeholder="Section name" disabled={readOnly} />
         <span className="count">{tasks.length}</span>
-        <button className="icon-btn reveal" onClick={remove} aria-label="Delete section" title="Delete section"><Icon.trash /></button>
+        {!readOnly && <button className="icon-btn reveal" onClick={remove} aria-label="Delete section" title="Delete section"><Icon.trash /></button>}
       </header>
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className="column-body" data-settle={sectionDndId(section.id)}>
           {tasks.map((t) => (
-            <SortableCard key={t.id} task={t} count={counts[t.id]} memberById={memberById} deco={deco} actions={actions} onOpen={onOpen} />
+            <SortableCard key={t.id} task={t} count={counts[t.id]} memberById={memberById} deco={deco} actions={actions} onOpen={onOpen} readOnly={readOnly} />
           ))}
-          {tasks.length === 0 && <p className="column-empty">Drop tasks here</p>}
+          {tasks.length === 0 && <p className="column-empty">{readOnly ? 'No tasks' : 'Drop tasks here'}</p>}
         </div>
       </SortableContext>
-      <InlineAdd className="card-add" label="Add task" placeholder="Task name"
-        onAdd={(title) => actions.createTask({ section_id: section.id, title })} />
+      {!readOnly && (
+        <InlineAdd className="card-add" label="Add task" placeholder="Task name"
+          onAdd={(title) => actions.createTask({ section_id: section.id, title })} />
+      )}
     </section>
   );
 }
 
-function SortableCard({ task, count, memberById, deco, actions, onOpen }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, data: { type: 'task', task } });
+function SortableCard({ task, count, memberById, deco, actions, onOpen, readOnly }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, data: { type: 'task', task }, disabled: readOnly });
   const style = { transform: CSS.Transform.toString(transform), transition };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}
@@ -144,7 +150,7 @@ function SortableCard({ task, count, memberById, deco, actions, onOpen }) {
         listeners?.onKeyDown?.(e);
       }}>
       <CardBody task={task} count={count} memberById={memberById} deco={deco}
-        onToggle={(v) => actions.updateTask(task.id, { completed: v })} />
+        onToggle={readOnly ? undefined : (v) => actions.updateTask(task.id, { completed: v })} />
     </div>
   );
 }
@@ -166,7 +172,7 @@ function CardBody({ task, count, memberById, deco, onToggle, lifted }) {
   return (
     <article ref={ref} data-settle={lifted ? undefined : task.id} className={`card${task.completed ? ' is-done' : ''}${lifted ? ' is-lifted' : ''}`}>
       <div className="card-top">
-        <Check checked={task.completed} onChange={onToggle || (() => {})} />
+        <Check checked={task.completed} onChange={onToggle || (() => {})} disabled={!onToggle && !lifted} />
         <p className="card-title">{task.title}</p>
       </div>
       {labelIds?.length > 0 && <LabelChips ids={labelIds} labels={deco.labels} />}
