@@ -36,6 +36,15 @@ const PROMPTS: Record<string, string> = {
   subtasks: 'Break this task into subtasks that would get it done. Reply with only the list: one subtask per line, each starting with "- ", short and actionable, and none that repeat an existing subtask.',
 };
 
+const ERROR_MARK = '\u0000';
+
+// Groq refuses requests over the model's context or the plan's tokens-per-minute limit
+// with 413, or 400 "context_length_exceeded".
+function tooLarge(err: unknown) {
+  if (!(err instanceof Groq.APIError)) return false;
+  return err.status === 413 || (err.status === 400 && /context|too large|too long/i.test(err.message));
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -52,7 +61,8 @@ Deno.serve(async (req) => {
   if (!(kind in PROMPTS) && !(kind === 'question' && question)) return json({ error: 'Ask a question first.' }, 400);
   if (question.length > MAX_QUESTION) return json({ error: `Keep questions under ${MAX_QUESTION} characters.` }, 400);
 
-  const task = await loadTask(admin, String(body?.task_id ?? ''), user.id);
+  const taskId = String(body?.task_id ?? '');
+  let task = await loadTask(admin, taskId, user.id);
   if (!task) return json({ error: "That task isn't available." }, 404);
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -72,7 +82,7 @@ Deno.serve(async (req) => {
     async start(controller) {
       try {
         const groq = new Groq({ apiKey: GROQ_API_KEY });
-        const completion = await groq.chat.completions.create({
+        const request = (t: NonNullable<typeof task>) => groq.chat.completions.create({
           model: MODEL,
           stream: true,
           max_completion_tokens: 8192,
@@ -81,9 +91,29 @@ Deno.serve(async (req) => {
           include_reasoning: false,
           messages: [
             { role: 'system', content: SYSTEM },
-            { role: 'user', content: `Today is ${today}.\n\n<project>\n${task.project}\n</project>\n\n<task>\n${task.text}\n</task>\n\n${ask}` },
+            { role: 'user', content: `Today is ${today}.\n\n<project>\n${t.project}\n</project>\n\n<task>\n${t.text}\n</task>\n\n${ask}` },
           ],
         });
+
+        // Too big for the model or the Groq plan's per-minute token limit: retry with less of
+        // the files' text, then with none.
+        let completion;
+        for (const scale of [1, 0.3, 0]) {
+          try {
+            if (scale < 1) task = (await loadTask(admin, taskId, user.id, scale)) ?? task;
+            completion = await request(task);
+            if (scale < 1) {
+              controller.enqueue(encoder.encode(scale > 0
+                ? '(The files were too long to read in full, so only the start of each was used.)\n\n'
+                : '(The files were too long to read, so this answer only uses the task and project details.)\n\n'));
+            }
+            break;
+          } catch (err) {
+            if (!tooLarge(err) || scale === 0) throw err;
+            console.error('ask-ai: request too large, retrying smaller', scale);
+          }
+        }
+        if (!completion) throw new Error('No completion');
 
         let finish: string | null = null;
         let usage: { prompt_tokens?: number; completion_tokens?: number } | undefined;
@@ -104,12 +134,17 @@ Deno.serve(async (req) => {
         }
       } catch (err) {
         console.error(err);
-        const message = err instanceof Groq.RateLimitError
-          ? 'The AI service is busy right now. Try again in a minute.'
-          : err instanceof Groq.AuthenticationError
-            ? 'Ask AI is not set up yet (missing or invalid Groq API key).'
-            : 'Something went wrong asking the AI. Try again.';
-        controller.enqueue(encoder.encode(`\n\n${message}`));
+        const message = tooLarge(err)
+          ? 'This task is too long for the AI to read, even without its files. Try asking about a smaller task.'
+          : err instanceof Groq.RateLimitError
+            ? 'The AI service is busy right now. Try again in a minute.'
+            : err instanceof Groq.AuthenticationError
+              ? 'Ask AI is not set up yet (missing or invalid Groq API key).'
+              : err instanceof Groq.APIError
+                ? `The AI service returned an error (${err.status ?? 'unknown'}). Try again.`
+                : 'Something went wrong asking the AI. Try again.';
+        // ERROR_MARK tells the app the rest is an error, not part of the answer.
+        controller.enqueue(encoder.encode(`${ERROR_MARK}${message}`));
       } finally {
         controller.close();
       }
@@ -122,7 +157,7 @@ Deno.serve(async (req) => {
 });
 
 // The task as plain text for the model, or null when it doesn't exist or the user isn't a member.
-async function loadTask(admin: SupabaseClient, id: string, userId: string) {
+async function loadTask(admin: SupabaseClient, id: string, userId: string, scale = 1) {
   if (!id) return null;
   const { data: task } = await admin.from('tasks')
     .select('id, title, description, completed, priority, due_date, parent_id, project_id, created_at, assignee:profiles!tasks_assignee_id_fkey(full_name), section:sections(name), project:projects(name)')
@@ -138,7 +173,7 @@ async function loadTask(admin: SupabaseClient, id: string, userId: string) {
     admin.from('tasks').select('title, completed').eq('parent_id', id).order('position'),
     admin.from('comments').select('body, created_at, author:profiles(full_name)').eq('task_id', id).order('created_at'),
     admin.from('task_attachments').select('name, path, size_bytes').eq('task_id', id).order('created_at'),
-    loadProject(admin, task.project_id),
+    loadProject(admin, task.project_id, scale),
   ]);
 
   const one = <T,>(v: T | T[] | null) => (Array.isArray(v) ? v[0] : v);
@@ -165,13 +200,13 @@ async function loadTask(admin: SupabaseClient, id: string, userId: string) {
     '',
     'Attachments:',
     ...(files.data?.length ? files.data.map((f) => `- ${f.name}`) : ['(none)']),
-    ...(await fileTexts(admin, files.data ?? [], TASK_FILES, 'attachment')),
+    ...(await fileTexts(admin, files.data ?? [], scaled(TASK_FILES, scale), 'attachment')),
   ];
   return { id: task.id, text: lines.join('\n'), project };
 }
 
 // The project's overview and reference files as plain text, for the <project> block.
-async function loadProject(admin: SupabaseClient, projectId: string) {
+async function loadProject(admin: SupabaseClient, projectId: string, scale = 1) {
   const [{ data: p }, { data: files }] = await Promise.all([
     admin.from('projects').select('name, description, status, start_date, due_date, links').eq('id', projectId).single(),
     admin.from('project_files').select('name, path, size_bytes').eq('project_id', projectId).order('created_at'),
@@ -192,7 +227,7 @@ async function loadProject(admin: SupabaseClient, projectId: string) {
     '',
     'Reference files:',
     ...(files?.length ? files.map((f) => `- ${f.name}`) : ['(none)']),
-    ...(await fileTexts(admin, files ?? [], PROJECT_FILES, 'file')),
+    ...(await fileTexts(admin, files ?? [], scaled(PROJECT_FILES, scale), 'file')),
   ].join('\n');
 }
 
@@ -201,6 +236,8 @@ async function loadProject(admin: SupabaseClient, projectId: string) {
 type Budget = { files: number; perFile: number; total: number };
 const TASK_FILES: Budget = { files: 8, perFile: 15_000, total: 45_000 };
 const PROJECT_FILES: Budget = { files: 6, perFile: 20_000, total: 40_000 };
+const scaled = (b: Budget, scale: number): Budget =>
+  ({ files: scale ? b.files : 0, perFile: Math.round(b.perFile * scale), total: Math.round(b.total * scale) });
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 async function fileTexts(admin: SupabaseClient, files: { name: string; path: string; size_bytes: number }[], limits: Budget, tag: string) {

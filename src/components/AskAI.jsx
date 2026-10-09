@@ -10,6 +10,8 @@ const ACTIONS = [
   { kind: 'subtasks', label: 'Suggest subtasks' },
 ];
 
+// Keep in sync with ERROR_MARK in supabase/functions/ask-ai/index.ts.
+const ERROR_MARK = '\u0000';
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ask-ai`;
 
 // "- item" lines from a subtask suggestion.
@@ -63,7 +65,13 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
         const chunk = decoder.decode(value, { stream: true });
         setAnswer((cur) => (cur ? { ...cur, text: cur.text + chunk } : cur));
       }
-      setAnswer((cur) => (cur ? { ...cur, done: true } : cur));
+      // The function marks a failure partway through with ERROR_MARK; what follows is the error.
+      setAnswer((cur) => {
+        if (!cur) return cur;
+        const at = cur.text.indexOf(ERROR_MARK);
+        return at === -1 ? { ...cur, done: true }
+          : { ...cur, text: cur.text.slice(0, at).trim(), error: cur.text.slice(at + 1).trim(), done: true };
+      });
     } catch (err) {
       if (err.name === 'AbortError') return;
       setAnswer((cur) => ({ ...(cur || { kind }), text: cur?.text || '', done: true, error: err.message }));
@@ -99,9 +107,14 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
       {answer && (
         <div className="ask-answer" aria-live="polite">
           {answer.text
-            ? <p className="ask-text">{answer.text}{busy && <span className="caret" />}</p>
+            ? <p className="ask-text">{answer.text.split(ERROR_MARK)[0]}{busy && <span className="caret" />}</p>
             : busy && <p className="muted small">Reading the task…</p>}
-          {answer.error && <p className="form-error">{answer.error}</p>}
+          {answer.error && (
+            <>
+              <p className="form-error">{answer.error}</p>
+              <button type="button" className="link-btn" onClick={() => setAnswer(null)}>Dismiss</button>
+            </>
+          )}
           {answer.done && !answer.error && answer.text && (
             <div className="ask-answer-actions">
               {suggestions.length > 0 && (
