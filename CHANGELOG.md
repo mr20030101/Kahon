@@ -16,6 +16,7 @@ before versioning was set up shipped as 0.1.0.
 
 ### Added
 
+- **Reference files for Ask AI**: project admins can add up to 6 specs, briefs or style guides (PDF, Word, Excel, PowerPoint, text, Markdown, CSV) in **About this project**. Ask AI now reads the project's description, status, dates, links and the text of these files on every task in the project. Requires running `supabase/migrations/20261009_project_files.sql` and redeploying the `ask-ai` function.
 - **Home** page: your day in one line, a week strip of what's due (pick a day to see it), **Up next** (overdue, today and this week, closable right there), **Waiting on others** (open tasks you handed off), project cards with progress and status, your @mentions, private **Notes** and a **Team pulse**. My tasks moves to `/my-tasks`. Notes need `supabase/migrations/20261009_home_notepad.sql`; until it's run, they're kept in the browser only.
 - **My tasks** has List, Board and Calendar views. The list is a table with due date, project, collaborators and priority columns, grouped by due date.
 - Super admins can view all workspace accounts, email/MFA status, project counts and sign-in dates from **All users**.

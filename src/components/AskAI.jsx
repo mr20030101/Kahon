@@ -118,7 +118,7 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
           )}
         </div>
       )}
-      <p className="hint">The AI reads this task's details, subtasks, comments and the text of its attachments (not images). Answers can be wrong; check before acting on them.</p>
+      <p className="hint">The AI reads this task's details, subtasks, comments and attachments (not images), plus the project's description and reference files from About. Answers can be wrong; check before acting on them.</p>
     </section>
   );
 }

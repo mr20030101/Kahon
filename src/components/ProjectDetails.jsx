@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { formatDue } from '../lib/dates';
 import { Icon, Modal } from './ui';
+import ProjectFiles from './ProjectFiles';
 
-// Project overview: description, status, dates and links. Every member can read it;
+// Project overview: description, status, dates, links and reference files. Every member can read it;
 // owners can edit it (projects update policy is owner-only).
 export const PROJECT_STATUSES = [
   { value: 'on_track', label: 'On track' },
@@ -85,6 +86,8 @@ function DetailsView({ project, isOwner, onEdit }) {
           </ul>
         ) : <p className="muted small">No links yet.</p>}
       </div>
+
+      <ProjectFiles projectId={project.id} isOwner={isOwner} />
 
       {isOwner && (
         <div className="settings-actions">

@@ -36,11 +36,11 @@ const FILE_TYPES = {
 const ACCEPT = Object.keys(FILE_TYPES).map((e) => `.${e}`).join(',');
 const MIME_EXT = Object.fromEntries(Object.entries(FILE_TYPES).map(([ext, [, mime]]) => [mime, ext]));
 
-const extOf = (name = '') => (name.includes('.') ? name.split('.').pop().toLowerCase() : '');
-const kindOf = (a) => FILE_TYPES[extOf(a.name)]?.[0] || FILE_TYPES[MIME_EXT[a.mime_type]]?.[0] || 'doc';
+export const extOf = (name = '') => (name.includes('.') ? name.split('.').pop().toLowerCase() : '');
+export const kindOf = (a) => FILE_TYPES[extOf(a.name)]?.[0] || FILE_TYPES[MIME_EXT[a.mime_type]]?.[0] || 'doc';
 
 // Resolve a dropped/pasted file to { ext, kind, mime }, or null when it isn't allowed.
-function classify(file) {
+export function classify(file) {
   let ext = extOf(file.name);
   if (!FILE_TYPES[ext] && MIME_EXT[file.type]) ext = MIME_EXT[file.type];
   const entry = FILE_TYPES[ext];
@@ -52,7 +52,7 @@ const inputLimit = (type) => (type.kind === 'image' && type.ext !== 'gif' ? MAX_
 
 // Checks a file really is what its extension says, then strips and shrinks images.
 // Returns what to store: { body, ext, mime }.
-async function prepareFile(file, type) {
+export async function prepareFile(file, type) {
   if (!(await hasValidSignature(file, type.ext))) throw new Error(`it doesn't look like a real .${type.ext} file`);
   const prepared = type.kind === 'image' && type.ext !== 'gif'
     ? await processImage(file, type.ext).then(({ blob, ext, mime }) => ({ body: blob, ext, mime }))
@@ -77,12 +77,17 @@ export async function removeAttachmentFiles({ taskIds, sectionId, projectId }) {
   if (sectionId) query = query.eq('task.section_id', sectionId);
   if (projectId) query = query.eq('project_id', projectId);
   const { data } = await query;
-  if (data?.length) await supabase.storage.from(BUCKET).remove(data.map((a) => a.path));
+  const paths = (data || []).map((a) => a.path);
+  if (projectId) {
+    const { data: files } = await supabase.from('project_files').select('path').eq('project_id', projectId);
+    paths.push(...(files || []).map((f) => f.path));
+  }
+  if (paths.length) await supabase.storage.from(BUCKET).remove(paths);
 }
 
 // Signed view URLs for everything, plus a download URL that keeps the original
 // filename for files the browser can't show.
-async function withUrls(rows) {
+export async function withUrls(rows) {
   if (!rows.length) return rows;
   const storage = supabase.storage.from(BUCKET);
   const { data } = await storage.createSignedUrls(rows.map((r) => r.path), URL_TTL);
