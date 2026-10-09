@@ -300,7 +300,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
           <div className="panel-drop" aria-hidden="true">
             <Icon.paperclip />
             <strong>Drop files to attach</strong>
-            <span className="hint">Images, PDFs, docs, sheets and slides, up to 25 MB each</span>
+            <span className="hint">Images, PDFs, docs, sheets and slides. Large images are compressed.</span>
           </div>
         )}
         <div className="panel-bar">

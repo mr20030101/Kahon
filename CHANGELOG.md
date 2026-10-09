@@ -20,6 +20,9 @@ before versioning was set up shipped as 0.1.0.
 - Project roles: each member is a **Project admin**, **Editor**, **Commenter** or **Viewer**, chosen when adding them and changeable from **Members**. Commenters can read and comment; viewers can only read.
 - People assigned to a task are notified in their inbox and by email when someone changes it (renames, completes, reschedules, moves it, and so on), as they already were for comments.
 
+- Attached images are cleaned and compressed before upload: location and camera data (EXIF) is removed, and large photos are resized to at most 3200 px and re-encoded, so a 60 MB photo uploads as a few MB. Images up to 100 MB can be attached.
+- Attachments are checked to really be the file type their name says (a renamed `.exe` or HTML file is refused), and file names are cleaned of path and hidden characters.
+
 ### Changed
 
 - Existing members are now **Editors** and owners are **Project admins**; what they can do is unchanged. Requires running `supabase/migrations/20261009_project_roles.sql` and redeploying the `notify` function.

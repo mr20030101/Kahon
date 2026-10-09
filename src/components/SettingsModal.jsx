@@ -7,6 +7,7 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { confirmDialog, isDialogOpen } from '../lib/dialog';
 import { getTheme, setTheme } from '../lib/theme';
 import { AVATAR_COLORS, avatarUrl, removeAvatarFile, timeZones, uploadAvatar } from '../lib/profiles';
+import { MAX_IMAGE_INPUT_BYTES } from '../lib/uploads';
 import { Icon } from './ui';
 
 const SECTIONS = [
@@ -96,7 +97,7 @@ function ProfileSection() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (file.size > 15 * 1024 * 1024) return toast('Choose an image under 15 MB', 'error');
+    if (file.size > MAX_IMAGE_INPUT_BYTES) return toast('Choose an image under 100 MB', 'error');
     setUploading(true);
     try {
       const old = profile.avatar_path;

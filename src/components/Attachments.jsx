@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { Icon } from './ui';
 import FileViewer, { previewKindOf } from './FileViewer';
+import { MAX_IMAGE_INPUT_BYTES, cleanFileName, hasValidSignature, processImage } from '../lib/uploads';
 
 const BUCKET = 'attachments';
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -44,6 +45,22 @@ function classify(file) {
   if (!FILE_TYPES[ext] && MIME_EXT[file.type]) ext = MIME_EXT[file.type];
   const entry = FILE_TYPES[ext];
   return entry ? { ext: ext === 'jpeg' ? 'jpg' : ext, kind: entry[0], mime: entry[1] } : null;
+}
+
+// Images (except GIFs) are re-encoded and compressed, so they may start larger than MAX_BYTES.
+const inputLimit = (type) => (type.kind === 'image' && type.ext !== 'gif' ? MAX_IMAGE_INPUT_BYTES : MAX_BYTES);
+
+// Checks a file really is what its extension says, then strips and shrinks images.
+// Returns what to store: { body, ext, mime }.
+async function prepareFile(file, type) {
+  if (!(await hasValidSignature(file, type.ext))) throw new Error(`it doesn't look like a real .${type.ext} file`);
+  const prepared = type.kind === 'image' && type.ext !== 'gif'
+    ? await processImage(file, type.ext).then(({ blob, ext, mime }) => ({ body: blob, ext, mime }))
+    : { body: file, ext: type.ext, mime: type.mime };
+  if (prepared.body.size > MAX_BYTES) {
+    throw new Error(type.kind === 'image' ? "it's still over 25 MB after compressing" : 'files must be 25 MB or smaller');
+  }
+  return prepared;
 }
 
 export function formatBytes(n) {
@@ -114,20 +131,22 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
   const upload = async (files) => {
     const allowed = files.map((file) => ({ file, type: classify(file) })).filter((f) => f.type);
     if (allowed.length < files.length) toast('Attach images, PDFs, documents, spreadsheets or presentations', 'error');
-    const ok = allowed.filter((f) => f.file.size > 0 && f.file.size <= MAX_BYTES);
-    if (ok.length < allowed.length) toast('Files must be 25 MB or smaller', 'error');
+    const ok = allowed.filter((f) => f.file.size > 0 && f.file.size <= inputLimit(f.type));
+    if (ok.length < allowed.length) toast('Images must be 100 MB or smaller, and other files 25 MB or smaller', 'error');
     if (!ok.length) return;
 
     setUploading((n) => n + ok.length);
-    await Promise.all(ok.map(async ({ file, type: { ext, mime } }) => {
+    await Promise.all(ok.map(async ({ file, type }) => {
       try {
+        const { body, ext, mime } = await prepareFile(file, type);
         const path = `${task.project_id}/${task.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: mime });
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime });
         if (upErr) throw upErr;
-        const name = (file.name && file.name !== 'image.png' ? file.name : `Pasted image.${ext}`).slice(0, 255);
+        const name = cleanFileName(file.name && file.name !== 'image.png' ? file.name : 'Pasted image', ext);
+        if (file.size - body.size > 1024 * 1024) toast(`Compressed ${name} from ${formatBytes(file.size)} to ${formatBytes(body.size)}`);
         const { data, error } = await supabase
           .from('task_attachments')
-          .insert({ task_id: task.id, project_id: task.project_id, path, name, mime_type: mime, size_bytes: file.size, created_by: userId })
+          .insert({ task_id: task.id, project_id: task.project_id, path, name, mime_type: mime, size_bytes: body.size, created_by: userId })
           .select()
           .single();
         if (error) {
