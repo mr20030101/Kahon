@@ -53,7 +53,7 @@ export default function Inbox() {
   };
 
   return (
-    <div className="page page-full">
+    <div className="page">
       <header className="page-head">
         <div>
           <h1>Inbox</h1>

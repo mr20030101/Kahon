@@ -25,6 +25,7 @@ before versioning was set up shipped as 0.1.0.
 
 ### Changed
 
+- Pages use the full width of the window instead of stopping at 1400 px, so wide screens no longer leave an empty strip on the right of **My tasks**, **All users** and project lists.
 - Existing members are now **Editors** and owners are **Project admins**; what they can do is unchanged. Requires running `supabase/migrations/20261009_project_roles.sql` and redeploying the `notify` function.
 
 ## 0.4.1 — 2026-10-08

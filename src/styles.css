@@ -303,7 +303,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-
 .swatch.big { width: 18px; height: 18px; border-radius: 5px; margin-top: 10px; }
 
 /* ============ Page ============ */
-.page { padding: 28px clamp(16px, 3.5vw, 44px) 80px; max-width: 1400px; }
+.page { padding: 28px clamp(16px, 3.5vw, 44px) 80px; }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
 .page-head h1 { font-size: 30px; line-height: 1.2; }
 .page-head p { margin: 4px 0 0; }
@@ -464,7 +464,7 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .board { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; padding-bottom: 4px; min-height: 60vh; scrollbar-width: none; overscroll-behavior-x: contain; }
 .board::-webkit-scrollbar { display: none; }
 /* Board view fills the rest of the window; columns stretch to the bottom and scroll inside. */
-.page-project.is-board { flex: 1 1 0; min-height: 420px; max-width: none; display: flex; flex-direction: column; padding-bottom: 12px; }
+.page-project.is-board { flex: 1 1 0; min-height: 420px; display: flex; flex-direction: column; padding-bottom: 12px; }
 .is-board .board { flex: 1; min-height: 0; align-items: stretch; }
 .is-board .column { max-height: none; }
 .is-board .column-body { flex: 1; }
@@ -495,17 +495,48 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .card-add { margin-top: 2px; }
 
 /* ============ My tasks ============ */
-.my-group { margin-top: 24px; }
-.my-group h2 { font-size: 17px; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.my-overdue h2 { color: var(--danger); }
-.my-row {
-  display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line);
-  border-top: 0; padding: 10px 14px; cursor: pointer; min-width: 0;
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; margin-bottom: 4px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; margin-bottom: -1px; white-space: nowrap;
+  font-size: 14px; font-weight: 600; color: var(--ink-2); border-bottom: 2px solid transparent; border-radius: 0;
 }
-.my-group h2 + .my-row { border-top: 1px solid var(--line); border-radius: var(--radius) var(--radius) 0 0; }
-.my-row:last-child { border-radius: 0 0 var(--radius) var(--radius); }
-.my-group h2 + .my-row:last-child { border-radius: var(--radius); }
+.tab:hover { color: var(--ink); }
+.tab.is-on { color: var(--ink); border-bottom-color: var(--primary); }
+.tab.is-on .count { background: var(--mango-soft); color: var(--primary); }
+.tab.is-late .count { background: var(--danger-soft); color: var(--danger); }
+.my-tasks.is-board { display: flex; flex-direction: column; flex: 1 1 0; min-height: 420px; padding-bottom: 12px; }
+.my-head { margin-bottom: 10px; }
+.view-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.view-bar .tabs { border-bottom: 0; margin-bottom: -1px; }
+.view-bar .toggle { padding-bottom: 8px; }
+.my-table { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.my-tr {
+  display: grid; grid-template-columns: 40px minmax(240px, 1fr) 120px minmax(140px, 220px) 140px 100px;
+  align-items: center; min-height: 42px;
+}
+.my-tr > * { padding: 0 12px; min-width: 0; height: 100%; display: flex; align-items: center; }
+.my-tr > * + * { border-left: 1px solid var(--line); }
+.my-th { min-height: 36px; font-size: 13px; font-weight: 600; color: var(--ink-3); background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.my-group-head {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 14px 12px 8px; font-family: var(--font-display);
+  font-size: 16px; font-weight: 600; color: var(--ink); text-align: left; border-bottom: 1px solid var(--line); border-radius: 0;
+}
+.my-overdue .my-group-head { color: var(--danger); }
+.my-caret { transition: transform 0.15s ease; }
+.my-caret.is-open { transform: rotate(90deg); }
+.my-row { cursor: pointer; border-bottom: 1px solid var(--line); }
+.my-group:last-child .my-row:last-child { border-bottom: 0; }
 .my-row:hover { background: color-mix(in srgb, var(--surface-2) 60%, var(--surface)); }
+.my-num { justify-content: center; }
+.my-name { gap: 10px; }
+.my-proj .project-chip { max-width: 100%; }
+.avatar-row { display: inline-flex; align-items: center; }
+.avatar-row .avatar + .avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--surface); }
+.avatar-row .muted { margin-left: 6px; }
+.my-card { cursor: pointer; }
+.my-card .project-chip { justify-self: start; max-width: 100%; }
+.my-overdue .column-head h3 { color: var(--danger); }
 .project-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); background: var(--surface-2); padding: 2px 9px; border-radius: 99px; white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ============ Task panel ============ */
@@ -919,7 +950,6 @@ button.label-chip.is-on { opacity: 1; box-shadow: 0 0 0 1.5px var(--chip); }
 .mention-menu button.is-on, .mention-menu button:hover { background: var(--surface-2); }
 
 /* ============ Inbox ============ */
-.page-full { max-width: none; }
 .inbox-group { margin-top: 18px; }
 .inbox-group-head { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--ink-2); margin: 0 0 8px; }
 .inbox { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
@@ -964,7 +994,10 @@ button.label-chip.is-on { opacity: 1; box-shadow: 0 0 0 1.5px var(--chip); }
   .page { padding-top: 18px; }
   .page-head h1, h1.editable { font-size: 24px; }
   .column { flex-basis: 82vw; max-height: none; }
-  .my-row .tag, .project-chip { display: none; }
+  .my-row .tag, .my-row .project-chip { display: none; }
+  .my-tr { grid-template-columns: minmax(0, 1fr) 90px; }
+  .my-tr > :not(.my-name):not(:nth-child(3)) { display: none; }
+  .view-bar .toggle { display: none; }
   .fields { grid-template-columns: 90px 1fr; }
   .admin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
