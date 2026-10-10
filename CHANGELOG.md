@@ -31,6 +31,17 @@ before versioning was set up shipped as 0.1.0.
 - Pages use the full width of the window instead of stopping at 1400 px, so wide screens no longer leave an empty strip on the right of **My tasks**, **All users** and project lists.
 - Existing members are now **Editors** and owners are **Project admins**; what they can do is unchanged. Requires running `supabase/migrations/20261009_project_roles.sql` and redeploying the `notify` function.
 
+### Security
+
+- Signing up with an invited email address joins the project only after the address is confirmed, so someone else can't register it first and take the seat.
+- A task can only be assigned to people in its project, so assignment, comment and reminder emails can't be sent to people outside it.
+- Attachment and reference file paths are checked strictly, so Ask AI and account deletion can't reach another project's files.
+- Inbox notifications can only be created by the app itself, not sent to anyone through the API.
+- Invitation emails are limited to 50 per person per day (set `INVITE_DAILY_LIMIT` to change it).
+- With two-factor on, a password alone no longer opens your notes or inbox, or changes your profile.
+- Duplicating a task whose assignee has left the project leaves the copy unassigned.
+- Requires running `supabase/migrations/20261010_security_hardening.sql` and redeploying the `ask-ai`, `delete-account` and `notify` functions.
+
 ## 0.4.1 — 2026-10-08
 
 ### Fixed
