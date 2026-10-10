@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 0.5.0 — 2026-10-10
+
 ### Added
 
 - **Reference files for Ask AI**: project admins can add up to 6 specs, briefs or style guides (PDF, Word, Excel, PowerPoint, text, Markdown, CSV) in **About this project**. Ask AI now reads the project's description, status, dates, links and the text of these files on every task in the project. Requires running `supabase/migrations/20261009_project_files.sql` and redeploying the `ask-ai` function.
