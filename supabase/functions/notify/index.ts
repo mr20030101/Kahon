@@ -17,6 +17,8 @@ import { APP_URL, type Email, plainMentions, sendEmail } from '../_shared/email.
 const DEDUPE_MINUTES = 10;
 // Re-sending an invitation is allowed this often.
 const INVITE_RESEND_MINUTES = 5;
+// Invitation emails go to addresses outside Kahon, so each person may send this many a day.
+const INVITE_DAILY_LIMIT = Number(Deno.env.get('INVITE_DAILY_LIMIT') ?? 50);
 // A task_updated email lists the changes its sender made in this window.
 const CHANGES_MINUTES = 5;
 const MENTION = /@\[[^\]]{1,120}\]\(([0-9a-f-]{36})\)/g;
@@ -193,6 +195,9 @@ const HANDLERS = {
       .eq('project_id', invite.project_id).eq('user_id', actorId).eq('role', 'owner');
     if (!count) return 0;
     if (invite.last_sent_at && Date.now() - new Date(invite.last_sent_at).getTime() < INVITE_RESEND_MINUTES * 60_000) return 0;
+    const { count: today } = await admin.from('email_log').select('id', { count: 'exact', head: true })
+      .eq('kind', 'invited').eq('recipient_id', actorId).gte('sent_at', new Date(Date.now() - 86_400_000).toISOString());
+    if ((today ?? 0) >= INVITE_DAILY_LIMIT) return 0;
 
     const { data: actor } = await admin.from('profiles').select('full_name, email').eq('id', actorId).single();
     const who = actor?.full_name || actor?.email || 'A teammate';
@@ -206,6 +211,8 @@ const HANDLERS = {
       footer: `You got this because ${who} invited ${invite.email}. If you don't want to join, ignore this email.`,
     });
     await admin.from('invitations').update({ last_sent_at: new Date().toISOString() }).eq('id', invite.id);
+    // Logged against the sender (the invitee has no profile yet), for the daily limit.
+    await admin.from('email_log').insert({ kind: 'invited', ref_id: invite.id, recipient_id: actorId });
     return 1;
   },
 };

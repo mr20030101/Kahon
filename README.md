@@ -86,6 +86,7 @@ Kahon sends two kinds of email, both through [Resend](https://resend.com) (free 
 
 1. Run `supabase/migrations/20261008_email_notifications.sql` in the **SQL Editor** (fresh installs get it from `schema.sql`).
    For project roles and task update notifications, also run `supabase/migrations/20261009_project_roles.sql`.
+   Existing databases should also run `supabase/migrations/20261010_security_hardening.sql`.
 2. Deploy the function with the Supabase CLI (`npx` downloads it; nothing to install). Your project ref is the subdomain of your Supabase URL.
 
    ```bash

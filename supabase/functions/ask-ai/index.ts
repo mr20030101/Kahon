@@ -200,7 +200,7 @@ async function loadTask(admin: SupabaseClient, id: string, userId: string, scale
     '',
     'Attachments:',
     ...(files.data?.length ? files.data.map((f) => `- ${f.name}`) : ['(none)']),
-    ...(await fileTexts(admin, files.data ?? [], scaled(TASK_FILES, scale), 'attachment')),
+    ...(await fileTexts(admin, files.data ?? [], scaled(TASK_FILES, scale), 'attachment', `${task.project_id}/${task.id}/`)),
   ];
   return { id: task.id, text: lines.join('\n'), project };
 }
@@ -227,7 +227,7 @@ async function loadProject(admin: SupabaseClient, projectId: string, scale = 1) 
     '',
     'Reference files:',
     ...(files?.length ? files.map((f) => `- ${f.name}`) : ['(none)']),
-    ...(await fileTexts(admin, files ?? [], scaled(PROJECT_FILES, scale), 'file')),
+    ...(await fileTexts(admin, files ?? [], scaled(PROJECT_FILES, scale), 'file', `${projectId}/project/`)),
   ].join('\n');
 }
 
@@ -240,7 +240,14 @@ const scaled = (b: Budget, scale: number): Budget =>
   ({ files: scale ? b.files : 0, perFile: Math.round(b.perFile * scale), total: Math.round(b.total * scale) });
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
-async function fileTexts(admin: SupabaseClient, files: { name: string; path: string; size_bytes: number }[], limits: Budget, tag: string) {
+// The service role reads any file, so only follow paths that stay in the folder they belong to.
+const inFolder = (path: string, folder: string) =>
+  path.startsWith(folder) && !path.slice(folder.length).includes('/') && !path.includes('..');
+
+async function fileTexts(
+  admin: SupabaseClient, files: { name: string; path: string; size_bytes: number }[], limits: Budget, tag: string, folder: string,
+) {
+  files = files.filter((f) => inFolder(f.path, folder));
   const out: string[] = [];
   let budget = limits.total;
   for (const f of files.slice(0, limits.files)) {

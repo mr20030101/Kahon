@@ -171,16 +171,18 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
 
   const duplicateTask = async () => {
     setShowMenu(false);
+    // People who have since left the project can't be assigned the copy.
+    const stillMember = (id) => (members.some((m) => m.user_id === id) ? id : null);
     const { data, error } = await supabase.from('tasks').insert({
       project_id: task.project_id, section_id: task.section_id, parent_id: task.parent_id,
-      title: `${task.title} (copy)`.slice(0, 500), description: task.description, assignee_id: task.assignee_id,
+      title: `${task.title} (copy)`.slice(0, 500), description: task.description, assignee_id: stillMember(task.assignee_id),
       due_date: task.due_date, priority: task.priority, recurrence: task.recurrence, position: task.position + 0.5,
     }).select().single();
     if (error) return toast(error.message, 'error');
     if (subtasks.length) {
       await supabase.from('tasks').insert(subtasks.map((st) => ({
         project_id: st.project_id, section_id: st.section_id, parent_id: data.id, title: st.title,
-        description: st.description, assignee_id: st.assignee_id, due_date: st.due_date, priority: st.priority, position: st.position,
+        description: st.description, assignee_id: stillMember(st.assignee_id), due_date: st.due_date, priority: st.priority, position: st.position,
       })));
     }
     const [{ data: tl }, { data: ta }] = await Promise.all([
