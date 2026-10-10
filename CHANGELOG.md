@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.0.0 — 2026-10-10
+
 ### Added
 
 - **Workspaces**: one per company or team, so one account can work for several (say, Loop, NCP and Des Allen) without their projects, people or tasks ever mixing. Switch between them at the top of the sidebar. Anyone can start a workspace and becomes its admin; admins invite people (who join when they accept) and create projects. **Workspace settings** has the member list, roles and pending invitations.
