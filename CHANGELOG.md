@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.1.0 — 2026-10-10
+
 ### Added
 
 - Super admin **Security**: super admins and accounts without two-factor, unconfirmed sign-ups (with **Resend confirmation**), new accounts this week, workspaces with no admin, and a log of super admin actions.
