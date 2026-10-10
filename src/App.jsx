@@ -16,6 +16,11 @@ import MfaChallenge from './pages/MfaChallenge';
 import ResetPassword from './pages/ResetPassword';
 import Inbox from './pages/Inbox';
 import AdminUsers from './pages/AdminUsers';
+import AdminWorkspaces from './pages/AdminWorkspaces';
+import AdminSecurity from './pages/AdminSecurity';
+import AdminErrors from './pages/AdminErrors';
+import AdminAI from './pages/AdminAI';
+import AdminEmails from './pages/AdminEmails';
 
 function Shell() {
   const { session, loading, needsMfa, recovering } = useAuth();
@@ -42,6 +47,11 @@ function Shell() {
             <Route path="/my-tasks" element={<MyTasks />} />
             <Route path="/inbox" element={<Inbox />} />
             <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/workspaces" element={<AdminWorkspaces />} />
+            <Route path="/admin/security" element={<AdminSecurity />} />
+            <Route path="/admin/errors" element={<AdminErrors />} />
+            <Route path="/admin/ai" element={<AdminAI />} />
+            <Route path="/admin/emails" element={<AdminEmails />} />
             <Route path="/p/:projectId" element={<ProjectPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

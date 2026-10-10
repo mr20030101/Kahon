@@ -61,7 +61,7 @@ export default function AdminUsers() {
       <header className="page-head">
         <div>
           <h1>All users</h1>
-          <p className="muted">Workspace accounts and their project access.</p>
+          <p className="muted">Every Kahon account, across all workspaces, and its project access.</p>
         </div>
         <button className="btn btn-ghost" type="button" onClick={load} disabled={status === 'loading'}>
           <Icon.history /> Refresh

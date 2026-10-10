@@ -38,12 +38,34 @@ export default function Sidebar({ open, onNavigate }) {
           <Icon.bell /> Inbox
           {unread > 0 && <span className="nav-badge" aria-label={`${unread} unread`}>{unread > 49 ? '50+' : unread}</span>}
         </NavLink>
-        {profile?.is_superadmin && (
-          <NavLink to="/admin/users" className="nav-item" onClick={onNavigate}>
-            <Icon.users /> All users
-          </NavLink>
-        )}
       </nav>
+
+      {/* Kahon-wide tools for super admins only. The database checks every action again. */}
+      {profile?.is_superadmin && (
+        <>
+          <div className="side-head"><span>Super admin</span></div>
+          <nav className="side-nav">
+            <NavLink to="/admin/users" className="nav-item" onClick={onNavigate}>
+              <Icon.users /> All users
+            </NavLink>
+            <NavLink to="/admin/workspaces" className="nav-item" onClick={onNavigate}>
+              <Icon.board /> All workspaces
+            </NavLink>
+            <NavLink to="/admin/security" className="nav-item" onClick={onNavigate}>
+              <Icon.check2 /> Security
+            </NavLink>
+            <NavLink to="/admin/errors" className="nav-item" onClick={onNavigate}>
+              <Icon.info /> Errors
+            </NavLink>
+            <NavLink to="/admin/ai" className="nav-item" onClick={onNavigate}>
+              <Icon.sparkle /> Ask AI usage
+            </NavLink>
+            <NavLink to="/admin/emails" className="nav-item" onClick={onNavigate}>
+              <Icon.inbox /> Emails sent
+            </NavLink>
+          </nav>
+        </>
+      )}
 
       <div className="side-head">
         <span>Projects</span>

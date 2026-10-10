@@ -14,6 +14,19 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Super admin **Security**: super admins and accounts without two-factor, unconfirmed sign-ups (with **Resend confirmation**), new accounts this week, workspaces with no admin, and a log of super admin actions.
+- Super admin **Errors**: errors people hit in their browser, grouped by message, with the page, app version and stack.
+- Super admin **Ask AI usage**: requests and tokens by day, person and workspace, and who hit the daily limit.
+- Super admin **Emails sent**: emails by type and day, and who sends the most invitations.
+- These need `supabase/migrations/20261010_admin_tools.sql`. They report on accounts and activity, never on what's inside a workspace's projects.
+- **All workspaces** (super admins only): every workspace on Kahon with its admins, people, projects, open tasks, pending invitations and last activity. View only. Requires running `supabase/migrations/20261010_admin_workspaces.sql`.
+
+### Changed
+
+- **All users** moves to its own **Super admin** section in the sidebar, shown only to super admins.
+
 ## 1.0.0 — 2026-10-10
 
 ### Added

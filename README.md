@@ -88,6 +88,7 @@ Kahon sends two kinds of email, both through [Resend](https://resend.com) (free 
    For project roles and task update notifications, also run `supabase/migrations/20261009_project_roles.sql`.
    Existing databases should also run `supabase/migrations/20261010_security_hardening.sql`.
    Then `supabase/migrations/20261010_workspaces.sql`, which puts every existing project into one workspace called "My workspace" (rename it in **Workspace settings**).
+   Then `supabase/migrations/20261010_admin_workspaces.sql` and `supabase/migrations/20261010_admin_tools.sql` for the super admin pages.
 2. Deploy the function with the Supabase CLI (`npx` downloads it; nothing to install). Your project ref is the subdomain of your Supabase URL.
 
    ```bash
