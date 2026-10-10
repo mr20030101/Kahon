@@ -9,6 +9,7 @@ import { canEdit } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useWorkspace } from '../context/WorkspaceContext';
+import { WorkspaceFilter, WorkspaceTag } from '../components/Workspaces';
 import { useInbox } from '../hooks/useInbox';
 import { StatusPill } from '../components/ProjectDetails';
 import NewProjectModal from '../components/NewProjectModal';
@@ -110,7 +111,7 @@ function Notepad({ userId }) {
 export default function Home() {
   const { user, profile } = useAuth();
   const toast = useToast();
-  const { projects } = useWorkspace();
+  const { projects, workspaces, inScope, isAdmin } = useWorkspace();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const openId = params.get('task');
@@ -126,7 +127,7 @@ export default function Home() {
   const [day, setDay] = useState(null); // a picked day on the week strip
   const [showNew, setShowNew] = useState(false);
 
-  const live = useMemo(() => projects.filter((p) => !p.archived_at), [projects]);
+  const live = useMemo(() => projects.filter((p) => !p.archived_at && inScope(p.id)), [projects, inScope]);
   const liveIds = useMemo(() => live.map((p) => p.id), [live]);
 
   const load = useCallback(async () => {
@@ -184,12 +185,16 @@ export default function Home() {
   }, [load]);
   useEffect(() => { loadTeam(); }, [loadTeam]);
 
+  // Your tasks in the workspaces the filter shows.
+  const myTasks = mine && mine.filter((t) => inScope(t.project_id));
+  const handedOff = assigned && assigned.filter((t) => inScope(t.project_id));
+
   const weekStart = startOfWeek();
   const weekIso = weekStart.toISOString();
-  const open = (mine || []).filter((t) => !t.completed);
+  const open = (myTasks || []).filter((t) => !t.completed);
   const overdue = open.filter((t) => t.due_date && dayDiff(t.due_date) < 0).sort(byDue);
   const dueToday = open.filter((t) => t.due_date && dayDiff(t.due_date) === 0);
-  const closed = (mine || []).filter((t) => t.completed && t.completed_at >= weekIso)
+  const closed = (myTasks || []).filter((t) => t.completed && t.completed_at >= weekIso)
     .sort((a, b) => b.completed_at.localeCompare(a.completed_at));
 
   const week = Array.from({ length: 7 }, (_, i) => {
@@ -228,7 +233,7 @@ export default function Home() {
     return out;
   }, [crewTasks, weekIso]);
 
-  const mentions = (notes || []).filter((n) => n.kind === 'mention').slice(0, 5);
+  const mentions = (notes || []).filter((n) => n.kind === 'mention' && inScope(n.project?.id ?? n.task?.project_id)).slice(0, 5);
   const openTask = (id) => setParams({ task: id });
   const close = useCallback(() => setParams({}), [setParams]);
   const openMention = (n) => {
@@ -283,6 +288,8 @@ export default function Home() {
         </svg>
       </header>
 
+      <WorkspaceFilter />
+
       <div className="hlayout">
         <div className="hmain">
           <Panel title={day ? 'Due that day' : 'Up next'} icon={Icon.check2}
@@ -309,7 +316,7 @@ export default function Home() {
                       <Check checked={t.completed} onChange={(v) => toggle(t, v)} disabled={!canEdit(roles[t.project_id])} />
                       <span className="htask-main">
                         <span className="htask-title">{t.title}</span>
-                        {t.project && <span className="htask-project"><span className="swatch" style={{ background: t.project.color }} />{t.project.name}</span>}
+                        {t.project && <span className="htask-project"><span className="swatch" style={{ background: t.project.color }} />{t.project.name} <WorkspaceTag projectId={t.project_id} /></span>}
                       </span>
                       <PriorityTag value={t.priority} />
                       <DueLabel value={t.due_date} completed={t.completed} />
@@ -323,18 +330,18 @@ export default function Home() {
 
           <Panel title="Waiting on others" icon={Icon.users}
             action={<span className="muted small">Open tasks you handed off</span>}>
-            {assigned === null ? <div className="skeleton" /> : assigned.length === 0 ? (
+            {handedOff === null ? <div className="skeleton" /> : handedOff.length === 0 ? (
               <Quiet>Nothing handed off right now.</Quiet>
             ) : (
               <ul className="hlist">
-                {assigned.slice(0, 6).map((t) => (
+                {handedOff.slice(0, 6).map((t) => (
                   <li key={t.id} className="htask" onClick={() => openTask(t.id)}>
                     <Avatar profile={peopleById[t.assignee_id]} size={26} />
                     <span className="htask-main">
                       <span className="htask-title">{t.title}</span>
                       <span className="htask-project">
                         {peopleById[t.assignee_id]?.full_name || 'Teammate'}
-                        {t.project && <> · <span className="swatch" style={{ background: t.project.color }} />{t.project.name}</>}
+                        {t.project && <> · <span className="swatch" style={{ background: t.project.color }} />{t.project.name} <WorkspaceTag projectId={t.project_id} /></>}
                       </span>
                     </span>
                     <DueLabel value={t.due_date} />
@@ -345,9 +352,11 @@ export default function Home() {
           </Panel>
 
           <Panel title="Projects" icon={Icon.list}
-            action={<button type="button" className="btn btn-ghost btn-small" onClick={() => setShowNew(true)}><Icon.plus width="15" height="15" /> New project</button>}>
+            action={isAdmin && <button type="button" className="btn btn-ghost btn-small" onClick={() => setShowNew(true)}><Icon.plus width="15" height="15" /> New project</button>}>
             {live.length === 0 ? (
-              <Quiet>Start a project to give your tasks a home.</Quiet>
+              <Quiet>{!workspaces.length
+                ? 'Create a workspace for your company or team from the top of the sidebar, or accept an invitation there.'
+                : isAdmin ? 'Start a project to give your tasks a home.' : 'Projects you\'re added to show up here.'}</Quiet>
             ) : (
               <div className="hprojects">
                 {live.map((p) => {
@@ -361,7 +370,7 @@ export default function Home() {
                         </span>
                         <span className="hproject-title">
                           <span className="hproject-name" title={p.name}>{p.name}</span>
-                          <span className="hproject-status"><StatusPill status={d?.status} /></span>
+                          <span className="hproject-status"><StatusPill status={d?.status} /> <WorkspaceTag projectId={p.id} /></span>
                         </span>
                       </span>
                       <span className="hproject-progress">

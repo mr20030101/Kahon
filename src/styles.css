@@ -1114,3 +1114,46 @@ button.label-chip.is-on { opacity: 1; box-shadow: 0 0 0 1.5px var(--chip); }
   .fields { grid-template-columns: 90px 1fr; }
   .admin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ============ Workspaces ============ */
+.ws { position: relative; margin: -4px 0 6px; }
+.ws-switch {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border-radius: 10px;
+  background: var(--spruce-2); color: #fff; text-align: left;
+}
+.ws-switch:hover { background: var(--spruce-3); }
+.ws-switch.is-empty { justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; border: 1px dashed #6E957A; background: none; }
+.ws-switch svg { flex: none; transform: rotate(90deg); transition: transform 0.15s; color: #8FAF98; }
+.ws-switch svg.is-open { transform: rotate(-90deg); }
+.ws-tile {
+  flex: none; display: inline-grid; place-items: center; border-radius: 7px; color: #fff; font-weight: 700;
+  line-height: 1; letter-spacing: 0.02em;
+}
+.ws-name { display: grid; flex: 1; min-width: 0; line-height: 1.25; }
+.ws-name strong { font-size: 14px; font-weight: 600; }
+.ws-name span { font-size: 12px; color: #8FAF98; }
+.ws-menu {
+  position: absolute; z-index: 60; left: 0; right: 0; top: calc(100% + 6px); max-height: 60vh; overflow-y: auto;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow-lift); padding: 6px;
+}
+.ws-menu-head { margin: 4px 8px 6px; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+.ws-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border-radius: 8px; font-size: 14px; text-align: left; color: var(--ink); }
+.ws-option:hover, .ws-option:focus-visible { background: var(--surface-2); outline: none; }
+.ws-option > .truncate { flex: 1; }
+.ws-option > svg:last-child { color: var(--primary); }
+.ws-sep { height: 1px; margin: 6px 2px; background: var(--line); }
+.ws-title { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 16px; }
+.ws-leave { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.danger-link { color: var(--danger); }
+.ws-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-3); white-space: nowrap; }
+.ws-tag i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.ws-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.ws-filter .chip.is-on { background: var(--primary); color: #fff; }
+.ws-invites { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 6px; }
+.ws-invites li { padding: 10px; border-radius: 10px; background: var(--spruce-2); border: 1px solid var(--spruce-3); }
+.ws-invites p { margin: 0 0 8px; font-size: 13px; line-height: 1.4; color: #C5D8CB; }
+.ws-invites strong { color: #fff; font-weight: 600; }
+.ws-invite-actions { display: flex; gap: 6px; }
+.ws-invites .btn.on-dark { color: #C5D8CB; }
+.ws-invites .btn.on-dark:hover { color: #fff; background: var(--spruce-3); }

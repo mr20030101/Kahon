@@ -7,7 +7,7 @@ import { Modal } from './ui';
 
 export default function NewProjectModal({ onClose }) {
   const navigate = useNavigate();
-  const { refreshProjects } = useWorkspace();
+  const { current, refreshProjects } = useWorkspace();
   const [name, setName] = useState('');
   const [color, setColor] = useState(PROJECT_COLORS[0]);
   const [saving, setSaving] = useState(false);
@@ -18,7 +18,7 @@ export default function NewProjectModal({ onClose }) {
     if (!name.trim()) return;
     setSaving(true);
     setError('');
-    const { data, error: err } = await supabase.rpc('create_project', { p_name: name.trim(), p_color: color });
+    const { data, error: err } = await supabase.rpc('create_project', { p_workspace: current?.id, p_name: name.trim(), p_color: color });
     setSaving(false);
     if (err) {
       setError(err.message);
@@ -30,7 +30,7 @@ export default function NewProjectModal({ onClose }) {
   };
 
   return (
-    <Modal title="New project" onClose={onClose}>
+    <Modal title={current ? `New project in ${current.name}` : 'New project'} onClose={onClose}>
       <form onSubmit={submit} className="stack">
         <label className="label">
           Project name

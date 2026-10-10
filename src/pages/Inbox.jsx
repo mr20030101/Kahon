@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useInbox } from '../hooks/useInbox';
+import { useWorkspace } from '../context/WorkspaceContext';
+import { WorkspaceFilter, WorkspaceTag } from '../components/Workspaces';
 import { timeAgo } from '../lib/dates';
 import { plainMentions } from '../lib/richtext';
 import { Avatar, Icon } from '../components/ui';
@@ -34,9 +36,10 @@ export default function Inbox() {
   const { items, unread, markRead, clearRead } = useInbox(user.id);
 
   const [filter, setFilter] = useState('all');
+  const { inScope } = useWorkspace();
 
   const groups = useMemo(() => {
-    const shown = (items ?? []).filter((n) => filter === 'all' || !n.read_at);
+    const shown = (items ?? []).filter((n) => (filter === 'all' || !n.read_at) && inScope(n.project?.id ?? n.task?.project_id));
     const out = [];
     for (const n of shown) {
       const label = dayGroup(n.created_at);
@@ -44,7 +47,7 @@ export default function Inbox() {
       out.at(-1).items.push(n);
     }
     return out;
-  }, [items, filter]);
+  }, [items, filter, inScope]);
 
   const open = (n) => {
     markRead([n.id]);
@@ -76,6 +79,8 @@ export default function Inbox() {
           {items?.some((n) => n.read_at) && <button className="btn btn-ghost" onClick={clearRead}>Clear read</button>}
         </div>
       </header>
+
+      <WorkspaceFilter />
 
       {items === null && <div><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div>}
       {items?.length === 0 && (
@@ -112,7 +117,7 @@ export default function Inbox() {
                       {n.comment?.body && <span className="inbox-quote">{plainMentions(n.comment.body).slice(0, 240)}</span>}
                     </span>
                     <span className="inbox-project muted small">
-                      {n.project && <><span className="swatch" style={{ background: n.project.color }} /> <span className="truncate">{n.project.name}</span></>}
+                      {n.project && <><span className="swatch" style={{ background: n.project.color }} /> <span className="truncate">{n.project.name}</span> <WorkspaceTag projectId={n.project.id} /></>}
                     </span>
                     <span className="inbox-time muted small" title={new Date(n.created_at).toLocaleString()}>{timeAgo(n.created_at)}</span>
                   </button>

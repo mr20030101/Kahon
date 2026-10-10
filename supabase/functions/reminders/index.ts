@@ -8,9 +8,15 @@
 import { adminClient, json } from '../_shared/auth.ts';
 import { APP_URL, sendEmail } from '../_shared/email.ts';
 
-type Task = { id: string; title: string; due_date: string; project_id: string; assignee_id: string | null; project: { name: string } | { name: string }[] };
+type Project = { name: string; workspace: { name: string } | { name: string }[] | null };
+type Task = { id: string; title: string; due_date: string; project_id: string; assignee_id: string | null; project: Project | Project[] };
 
-const projectName = (t: Task) => (Array.isArray(t.project) ? t.project[0] : t.project)?.name ?? '';
+const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v);
+// "Loop · Website", so people in several workspaces can tell which company a task is for.
+const projectName = (t: Task) => {
+  const project = one(t.project);
+  return [one(project?.workspace)?.name, project?.name].filter(Boolean).join(' · ');
+};
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -23,7 +29,7 @@ Deno.serve(async (req) => {
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
   const { data: tasks, error } = await admin.from('tasks')
-    .select('id, title, due_date, project_id, assignee_id, project:projects!inner(name, archived_at)')
+    .select('id, title, due_date, project_id, assignee_id, project:projects!inner(name, archived_at, workspace:workspaces(name))')
     .eq('completed', false).not('due_date', 'is', null).lte('due_date', tomorrow)
     .is('project.archived_at', null);
   if (error) {

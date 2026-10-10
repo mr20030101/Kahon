@@ -22,7 +22,7 @@ export default function ProjectPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { refreshProjects } = useWorkspace();
+  const { refreshProjects, workspaces, setCurrent } = useWorkspace();
   const [params, setParams] = useSearchParams();
   const data = useProject(projectId);
   const [showMembers, setShowMembers] = useState(false);
@@ -33,6 +33,12 @@ export default function ProjectPage() {
   const [showLabels, setShowLabels] = useState(false);
 
   useEffect(() => setFilters(EMPTY_FILTERS), [projectId]);
+
+  // Opening a project (say, from an email link) shows its workspace in the sidebar.
+  const workspaceId = data.project?.workspace_id;
+  useEffect(() => {
+    if (workspaceId) setCurrent(workspaceId);
+  }, [workspaceId, setCurrent]);
 
   // Board is the default; ?view=list or ?view=calendar switch. Old ?view=board links still work.
   const view = ['list', 'calendar'].includes(params.get('view')) ? params.get('view') : 'board';
@@ -78,6 +84,8 @@ export default function ProjectPage() {
   const myRole = members.find((m) => m.user_id === user.id)?.role;
   const isOwner = myRole === 'owner';
   const readOnly = !canEdit(myRole);
+  // Duplicating creates a project, which only workspace admins can do.
+  const workspaceAdmin = workspaces.find((w) => w.id === project.workspace_id)?.role === 'admin';
   const matchCount = shownTasks.filter((t) => !t.parent_id && !(hideCompleted && t.completed)).length;
   const viewProps = {
     sections, tasks: shownTasks, members, hideCompleted, actions, onOpen: open,
@@ -205,9 +213,11 @@ export default function ProjectPage() {
                     <Icon.tag /> Labels
                   </button>
                 )}
-                <button className="menu-item" onClick={duplicate}>
-                  <Icon.copy /> Duplicate project
-                </button>
+                {workspaceAdmin && (
+                  <button className="menu-item" onClick={duplicate}>
+                    <Icon.copy /> Duplicate project
+                  </button>
+                )}
                 {isOwner && (
                   <>
                     <hr className="menu-sep" />

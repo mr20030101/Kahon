@@ -14,6 +14,28 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- **Workspaces**: one per company or team, so one account can work for several (say, Loop, NCP and Des Allen) without their projects, people or tasks ever mixing. Switch between them at the top of the sidebar. Anyone can start a workspace and becomes its admin; admins invite people (who join when they accept) and create projects. **Workspace settings** has the member list, roles and pending invitations.
+- **Home**, **My tasks** and **Inbox** show every workspace together, tagged by company, with chips to show just one.
+- Emails about a project start with its workspace's name, as "[Loop] Ana assigned you…", and reminder digests name it next to each task.
+
+### Changed
+
+- Existing projects are all in one workspace called "My workspace"; rename it in **Workspace settings**. Project admins became its admins; everyone else in a project became a member.
+- Only workspace admins can create or duplicate projects.
+- Adding someone to a project from outside its workspace invites them to the workspace too, and only a workspace admin can do it.
+- Invitations are accepted in the app (Join or Decline at the top of the sidebar) instead of joining automatically at sign-up.
+- Tasks can only be moved to projects in the same workspace.
+- Deleting your account is refused while you're the only admin of a workspace with other people in it. A project only you were in passes to a workspace admin instead of being deleted.
+- Requires running `supabase/migrations/20261010_workspaces.sql` and redeploying the `notify`, `delete-account` and `reminders` functions.
+
+### Security
+
+- Nobody can add you to a workspace without your say: invitations wait until you accept them signed in with the invited, confirmed email address. Otherwise anyone, since sign-up is open, could pull a person into their workspace and see their profile.
+- Inviting someone replies the same way whether or not they have an account, so it can't be used to find out who uses Kahon.
+- Removing someone from a workspace removes them from all its projects at once.
+
 ## 0.5.0 — 2026-10-10
 
 ### Added

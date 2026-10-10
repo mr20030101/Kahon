@@ -207,7 +207,9 @@ export function ActivityLog({ taskId, members }) {
 export function MoveTaskModal({ task, onClose, onMoved }) {
   const toast = useToast();
   const { projects } = useWorkspace();
-  const choices = projects.filter((p) => p.id !== task.project_id && !p.archived_at);
+  // Tasks stay inside their workspace: one company's work never moves into another's.
+  const workspaceId = projects.find((p) => p.id === task.project_id)?.workspace_id;
+  const choices = projects.filter((p) => p.id !== task.project_id && !p.archived_at && p.workspace_id === workspaceId);
   const [projectId, setProjectId] = useState(choices[0]?.id || '');
   const [sections, setSections] = useState([]);
   const [sectionId, setSectionId] = useState('');
@@ -246,7 +248,7 @@ export function MoveTaskModal({ task, onClose, onMoved }) {
   return (
     <Modal title="Move task" onClose={onClose} width={460}>
       {choices.length === 0 ? (
-        <p className="muted">You're not in any other project to move it to.</p>
+        <p className="muted">You're not in any other project in this workspace to move it to.</p>
       ) : (
         <div className="stack">
           <label className="label">Project

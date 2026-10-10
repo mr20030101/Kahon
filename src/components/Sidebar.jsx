@@ -5,11 +5,12 @@ import { useInbox } from '../hooks/useInbox';
 import { useWorkspace } from '../context/WorkspaceContext';
 import NewProjectModal from './NewProjectModal';
 import SettingsModal from './SettingsModal';
+import { WorkspaceInvitations, WorkspaceSwitcher } from './Workspaces';
 import { Avatar, Icon, Lockup } from './ui';
 
 export default function Sidebar({ open, onNavigate }) {
   const { user, profile, signOut } = useAuth();
-  const { projects: all, loaded } = useWorkspace();
+  const { currentProjects: all, current, isAdmin, loaded } = useWorkspace();
   const { unread } = useInbox(user?.id, { limit: 50 });
   const [showArchived, setShowArchived] = useState(false);
   const projects = all.filter((p) => !p.archived_at);
@@ -22,6 +23,9 @@ export default function Sidebar({ open, onNavigate }) {
       <div className="brand">
         <Lockup height={28} />
       </div>
+
+      <WorkspaceSwitcher onNavigate={onNavigate} />
+      <WorkspaceInvitations />
 
       <nav className="side-nav">
         <NavLink to="/" end className="nav-item" onClick={onNavigate}>
@@ -43,9 +47,11 @@ export default function Sidebar({ open, onNavigate }) {
 
       <div className="side-head">
         <span>Projects</span>
-        <button className="icon-btn on-dark" onClick={() => setShowNew(true)} aria-label="New project" title="New project">
-          <Icon.plus />
-        </button>
+        {isAdmin && (
+          <button className="icon-btn on-dark" onClick={() => setShowNew(true)} aria-label="New project" title="New project">
+            <Icon.plus />
+          </button>
+        )}
       </div>
 
       <nav className="side-nav project-nav">
@@ -68,11 +74,13 @@ export default function Sidebar({ open, onNavigate }) {
             ))}
           </>
         )}
-        {loaded && all.length === 0 && (
+        {loaded && current && all.length === 0 && (isAdmin ? (
           <button className="side-empty" onClick={() => setShowNew(true)}>
             Create your first project to start adding tasks.
           </button>
-        )}
+        ) : (
+          <p className="side-empty">You haven't been added to any projects in {current.name} yet.</p>
+        ))}
       </nav>
 
       <div className="side-foot">

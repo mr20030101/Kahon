@@ -7,6 +7,8 @@ import { useToast } from '../context/ToastContext';
 import { notifyTaskUpdate } from '../lib/notify';
 import { canEdit } from '../lib/roles';
 import TaskPanel from '../components/TaskPanel';
+import { useWorkspace } from '../context/WorkspaceContext';
+import { WorkspaceFilter, WorkspaceTag } from '../components/Workspaces';
 import CalendarView from '../components/CalendarView';
 import { Avatar, Check, DueLabel, Icon, PriorityTag } from '../components/ui';
 
@@ -23,6 +25,7 @@ export default function MyTasks() {
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [tasks, setTasks] = useState([]);
+  const { inScope } = useWorkspace();
   const [roles, setRoles] = useState({}); // project id -> your role there
   const [loading, setLoading] = useState(true);
   const [showDone, setShowDone] = useState(false);
@@ -89,7 +92,9 @@ export default function MyTasks() {
     };
   }, [user.id, load]);
 
-  const visible = tasks.filter((t) => showDone || !t.completed);
+  // Your tasks in the workspaces the filter shows.
+  const scoped = tasks.filter((t) => inScope(t.project_id));
+  const visible = scoped.filter((t) => showDone || !t.completed);
   const groups = useMemo(
     () => GROUPS.map((g) => ({ ...g, items: visible.filter((t) => g.test(dayDiff(t.due_date))) })),
     [visible],
@@ -138,7 +143,7 @@ export default function MyTasks() {
   ];
 
   const projectChip = (t) => t.project && (
-    <span className="project-chip"><span className="swatch" style={{ background: t.project.color }} /><span className="truncate">{t.project.name}</span></span>
+    <span className="project-chip"><span className="swatch" style={{ background: t.project.color }} /><span className="truncate">{t.project.name}</span> <WorkspaceTag projectId={t.project_id} /></span>
   );
   const collaborators = (t) => (
     <span className="avatar-row">
@@ -148,7 +153,7 @@ export default function MyTasks() {
   );
 
   const firstName = profile?.full_name?.split(' ')[0];
-  const openCount = tasks.filter((t) => !t.completed).length;
+  const openCount = scoped.filter((t) => !t.completed).length;
 
   let rowNo = 0;
 
@@ -164,6 +169,8 @@ export default function MyTasks() {
           </p>
         </div>
       </header>
+
+      <WorkspaceFilter />
 
       <div className="view-bar">
         <div className="tabs" role="tablist" aria-label="View">
@@ -256,7 +263,7 @@ export default function MyTasks() {
       )}
 
       {view === 'calendar' && (
-        <CalendarView tasks={tasks} hideCompleted={!showDone} actions={{ updateTask }} onOpen={open}
+        <CalendarView tasks={scoped} hideCompleted={!showDone} actions={{ updateTask }} onOpen={open}
           labels={[]} labelsByTask={new Map()} readOnly={false} />
       )}
 

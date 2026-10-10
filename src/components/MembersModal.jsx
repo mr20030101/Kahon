@@ -17,7 +17,9 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const { refreshProjects } = useWorkspace();
+  const { refreshProjects, workspaces } = useWorkspace();
+  const workspace = workspaces.find((w) => w.id === project.workspace_id);
+  const [colleagues, setColleagues] = useState([]); // workspace members not in this project yet
   const [email, setEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('editor');
   const [busy, setBusy] = useState(false);
@@ -57,6 +59,12 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
   useEffect(() => {
     loadInvites();
   }, [loadInvites]);
+
+  useEffect(() => {
+    if (!isOwner || !project.workspace_id) return;
+    supabase.from('workspace_members').select('user_id, profile:profiles(full_name, email)').eq('workspace_id', project.workspace_id)
+      .then(({ data }) => setColleagues((data || []).filter((m) => m.profile?.email && !members.some((x) => x.user_id === m.user_id))));
+  }, [isOwner, project.workspace_id, members]);
 
   const resend = (invite) => {
     notify('invited', { invitation_id: invite.id });
@@ -118,8 +126,11 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
     <Modal title="Members" onClose={onClose} width={520}>
       {isOwner && (
         <form onSubmit={add} className="invite-row">
-          <input className="input" type="email" placeholder="teammate@company.com" value={email}
+          <input className="input" type="email" placeholder="teammate@company.com" value={email} list="workspace-people"
             onChange={(e) => setEmail(e.target.value)} aria-label="Teammate email" />
+          <datalist id="workspace-people">
+            {colleagues.map((c) => <option key={c.user_id} value={c.profile.email}>{c.profile.full_name}</option>)}
+          </datalist>
           <label className="field-select role-select invite-role">
             <span>{roleLabel(inviteRole)}</span>
             <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} aria-label="Role for the new member">
@@ -130,7 +141,13 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
         </form>
       )}
       {error && <p className="form-error">{error}</p>}
-      {isOwner && <p className="muted small">People with a Kahon account are added straight away. Anyone else gets an invitation email and joins with this role when they sign up.</p>}
+      {isOwner && (
+        <p className="muted small">
+          {workspace?.role === 'admin'
+            ? `People in ${workspace.name} are added straight away. Anyone else gets an invitation to ${workspace.name} and this project, and joins both when they accept.`
+            : `You can add people already in ${workspace?.name ?? 'this workspace'}. To bring in someone new, ask a workspace admin to invite them first.`}
+        </p>
+      )}
       <ul className="member-list">
         {sorted.map((m) => {
           const lastOwner = m.role === 'owner' && ownerCount === 1;

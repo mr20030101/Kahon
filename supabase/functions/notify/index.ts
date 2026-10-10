@@ -4,6 +4,8 @@
 // and content are always looked up here, from the database, so a caller can't use
 // this to email arbitrary people or text: they must be signed in (with two-factor if
 // it's on), be a member of the project, and (for comments) be the comment's author.
+// Emails about a project name its workspace in the subject, as "[Loop] ...", since one
+// person can work in several companies' workspaces.
 //
 // Secrets: RESEND_API_KEY, EMAIL_FROM ("Kahon <notifications@yourdomain.com>"),
 // APP_URL ("https://kahon.vercel.app"). SUPABASE_URL and
@@ -70,7 +72,7 @@ const HANDLERS = {
       recipient = count ? user_id : null;
     }
     return send(admin, {
-      kind: 'task_assigned', refId: task.id, recipientIds: [recipient], actorId,
+      kind: 'task_assigned', refId: task.id, recipientIds: [recipient], actorId, workspace: task.project.workspace?.name,
       build: (actor) => ({
         subject: `${actor} assigned you "${task.title}"`,
         heading: 'You have a new task',
@@ -106,7 +108,7 @@ const HANDLERS = {
     const recipients = [task.assignee_id, ...(extra ?? []).map((a) => a.user_id)].filter((id) => id !== assigned);
 
     return send(admin, {
-      kind: 'task_updated', refId: task.id, recipientIds: recipients, actorId,
+      kind: 'task_updated', refId: task.id, recipientIds: recipients, actorId, workspace: task.project.workspace?.name,
       build: (actor) => ({
         subject: `${actor} updated "${task.title}"`,
         heading: 'Task updated',
@@ -126,10 +128,10 @@ const HANDLERS = {
     const actorIsOwner = rows?.some((r) => r.user_id === actorId && r.role === 'owner');
     const added = rows?.some((r) => r.user_id === user_id);
     if (!actorIsOwner || !added) return 0;
-    const { data: project } = await admin.from('projects').select('id, name').eq('id', project_id).single();
+    const { data: project } = await admin.from('projects').select('id, name, workspace:workspaces(name)').eq('id', project_id).single();
     if (!project) return 0;
     return send(admin, {
-      kind: 'member_added', refId: project.id, recipientIds: [user_id], actorId,
+      kind: 'member_added', refId: project.id, recipientIds: [user_id], actorId, workspace: one(project.workspace)?.name,
       build: (actor) => ({
         subject: `${actor} added you to ${project.name}`,
         heading: `You've joined ${project.name}`,
@@ -164,7 +166,7 @@ const HANDLERS = {
       .filter((id) => id && !mentioned.includes(id));
 
     let sent = await send(admin, {
-      kind: 'mentioned', refId: comment.id, recipientIds: mentioned, actorId,
+      kind: 'mentioned', refId: comment.id, recipientIds: mentioned, actorId, workspace: task.project.workspace?.name,
       build: (actor) => ({
         subject: `${actor} mentioned you on "${task.title}"`,
         heading: 'You were mentioned',
@@ -174,7 +176,7 @@ const HANDLERS = {
     });
     sent += await send(admin, {
       // Keyed by task, so a burst of comments sends one email, not one per comment.
-      kind: 'comment_added', refId: task.id, recipientIds: followers, actorId,
+      kind: 'comment_added', refId: task.id, recipientIds: followers, actorId, workspace: task.project.workspace?.name,
       build: (actor) => ({
         subject: `${actor} commented on "${task.title}"`,
         heading: 'New comment',
@@ -185,46 +187,95 @@ const HANDLERS = {
     return sent;
   },
 
-  // { invitation_id }: email someone without an account who was invited to a project.
+  // { invitation_id }: email someone outside the workspace who was invited to a project (and with it, the workspace).
   async invited(admin: Admin, actorId: string, { invitation_id }: { invitation_id?: string }) {
     if (!invitation_id) return 0;
     const { data: invite } = await admin.from('invitations')
-      .select('id, email, project_id, last_sent_at, project:projects(name)').eq('id', invitation_id).single();
+      .select('id, email, project_id, last_sent_at, project:projects(name, workspace:workspaces(name))').eq('id', invitation_id).single();
     if (!invite) return 0;
     const { count } = await admin.from('project_members').select('user_id', { count: 'exact', head: true })
       .eq('project_id', invite.project_id).eq('user_id', actorId).eq('role', 'owner');
     if (!count) return 0;
     if (invite.last_sent_at && Date.now() - new Date(invite.last_sent_at).getTime() < INVITE_RESEND_MINUTES * 60_000) return 0;
-    const { count: today } = await admin.from('email_log').select('id', { count: 'exact', head: true })
-      .eq('kind', 'invited').eq('recipient_id', actorId).gte('sent_at', new Date(Date.now() - 86_400_000).toISOString());
-    if ((today ?? 0) >= INVITE_DAILY_LIMIT) return 0;
+    if (await overInviteLimit(admin, actorId)) return 0;
 
     const { data: actor } = await admin.from('profiles').select('full_name, email').eq('id', actorId).single();
     const who = actor?.full_name || actor?.email || 'A teammate';
-    const project = (Array.isArray(invite.project) ? invite.project[0] : invite.project)?.name ?? 'a project';
-    await sendEmail(invite.email, {
-      subject: `${who} invited you to ${project} on Kahon`,
-      heading: `Join ${project} on Kahon`,
-      intro: `${who} invited you to the ${project} project on Kahon, where your team plans and tracks its work. Create your account with this email address (${invite.email}) and you'll be added automatically.`,
-      cta: 'Create your account',
-      url: `${APP_URL}/?signup=${encodeURIComponent(invite.email)}`,
-      footer: `You got this because ${who} invited ${invite.email}. If you don't want to join, ignore this email.`,
-    });
+    const proj = one(invite.project);
+    const project = proj?.name ?? 'a project';
+    const workspace = one(proj?.workspace)?.name;
+    await sendEmail(invite.email, inviteEmail(await hasAccount(admin, invite.email), invite.email, who,
+      `the ${project} project${workspace ? ` in the ${workspace} workspace` : ''}`, project));
     await admin.from('invitations').update({ last_sent_at: new Date().toISOString() }).eq('id', invite.id);
-    // Logged against the sender (the invitee has no profile yet), for the daily limit.
+    // Logged against the sender, for the daily limit.
+    await admin.from('email_log').insert({ kind: 'invited', ref_id: invite.id, recipient_id: actorId });
+    return 1;
+  },
+
+  // { invitation_id }: email someone invited to a workspace.
+  async workspace_invited(admin: Admin, actorId: string, { invitation_id }: { invitation_id?: string }) {
+    if (!invitation_id) return 0;
+    const { data: invite } = await admin.from('workspace_invitations')
+      .select('id, email, workspace_id, last_sent_at, workspace:workspaces(name)').eq('id', invitation_id).single();
+    if (!invite || !(await isWorkspaceAdmin(admin, invite.workspace_id, actorId))) return 0;
+    if (invite.last_sent_at && Date.now() - new Date(invite.last_sent_at).getTime() < INVITE_RESEND_MINUTES * 60_000) return 0;
+    if (await overInviteLimit(admin, actorId)) return 0;
+
+    const { data: actor } = await admin.from('profiles').select('full_name, email').eq('id', actorId).single();
+    const who = actor?.full_name || actor?.email || 'A teammate';
+    const workspace = one(invite.workspace)?.name ?? 'a workspace';
+    await sendEmail(invite.email, inviteEmail(await hasAccount(admin, invite.email), invite.email, who,
+      `the ${workspace} workspace`, workspace));
+    await admin.from('workspace_invitations').update({ last_sent_at: new Date().toISOString() }).eq('id', invite.id);
     await admin.from('email_log').insert({ kind: 'invited', ref_id: invite.id, recipient_id: actorId });
     return 1;
   },
 };
 
+const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v);
+
+async function isWorkspaceAdmin(admin: Admin, workspaceId: string, userId: string) {
+  const { count } = await admin.from('workspace_members').select('user_id', { count: 'exact', head: true })
+    .eq('workspace_id', workspaceId).eq('user_id', userId).eq('role', 'admin');
+  return (count ?? 0) > 0;
+}
+
+// Invitations are accepted in the app, so the email asks people to sign in (or sign up) and
+// accept; it never says they've already joined. Sent the same way whether or not the address
+// has an account, apart from the button.
+function inviteEmail(existing: boolean, email: string, who: string, what: string, name: string): Email {
+  return {
+    subject: `${who} invited you to ${name} on Kahon`,
+    heading: `Join ${name} on Kahon`,
+    intro: existing
+      ? `${who} invited you to ${what} on Kahon. Sign in as ${email} and accept the invitation at the top of the sidebar.`
+      : `${who} invited you to ${what} on Kahon, where teams plan and track their work. Create your account with this email address (${email}), then accept the invitation at the top of the sidebar.`,
+    cta: existing ? 'Open Kahon' : 'Create your account',
+    url: existing ? (APP_URL || 'https://kahon.app') : `${APP_URL}/?signup=${encodeURIComponent(email)}`,
+    footer: `You got this because ${who} invited ${email}. If you don't want to join, ignore this email or decline the invitation.`,
+  };
+}
+
+async function hasAccount(admin: Admin, email: string) {
+  const { count } = await admin.from('profiles').select('id', { count: 'exact', head: true }).eq('email', email);
+  return (count ?? 0) > 0;
+}
+
+// Project and workspace invitations share one daily limit per sender.
+async function overInviteLimit(admin: Admin, actorId: string) {
+  const { count } = await admin.from('email_log').select('id', { count: 'exact', head: true })
+    .eq('kind', 'invited').eq('recipient_id', actorId).gte('sent_at', new Date(Date.now() - 86_400_000).toISOString());
+  return (count ?? 0) >= INVITE_DAILY_LIMIT;
+}
+
 async function getTask(admin: Admin, id?: string) {
   if (!id) return null;
   const { data } = await admin.from('tasks')
-    .select('id, title, project_id, assignee_id, created_by, project:projects(name)')
+    .select('id, title, project_id, assignee_id, created_by, project:projects(name, workspace:workspaces(name))')
     .eq('id', id).single();
   return data as null | {
     id: string; title: string; project_id: string; assignee_id: string | null; created_by: string | null;
-    project: { name: string };
+    project: { name: string; workspace: { name: string } | null };
   };
 }
 
@@ -263,7 +314,8 @@ function describeChange(field: string, value: string | null, assigneeName?: stri
 // Emails each recipient once (never the actor, never someone who opted out, never
 // twice inside the dedupe window) and logs it. Returns how many were sent.
 async function send(admin: Admin, opts: {
-  kind: string; refId: string; recipientIds: (string | null)[]; actorId: string; build: (actor: string) => Email;
+  kind: string; refId: string; recipientIds: (string | null)[]; actorId: string; workspace?: string;
+  build: (actor: string) => Email;
 }) {
   const ids = [...new Set(opts.recipientIds.filter((id): id is string => !!id && id !== opts.actorId))];
   if (!ids.length) return 0;
@@ -271,6 +323,7 @@ async function send(admin: Admin, opts: {
     .select('id, email, full_name, email_notifications').in('id', [...ids, opts.actorId]);
   const actor = people?.find((p) => p.id === opts.actorId);
   const email = opts.build(actor?.full_name || actor?.email || 'Someone');
+  if (opts.workspace) email.subject = `[${opts.workspace}] ${email.subject}`;
 
   let sent = 0;
   for (const person of people ?? []) {

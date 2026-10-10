@@ -1,11 +1,12 @@
 // Permanently deletes the signed-in person's account.
 //
 // Before deleting: projects they created but co-own pass to another owner (projects.owner_id
-// cascades on delete, so leaving it would delete the project for everyone); projects where
-// they're the only member are deleted with their files; and it refuses while they're the only
-// owner of a project other people are still in. Their avatar and uploaded files are removed
-// from storage, then the auth user is deleted, which cascades to their profile, memberships,
-// comments and attachment records.
+// cascades on delete, so leaving it would delete the project for everyone); a project only they
+// were in passes to an admin of its workspace, or is deleted with its files when there's none;
+// workspaces only they were in are deleted. It refuses while they're the only owner of a
+// project, or the only admin of a workspace, that other people are still in. Their avatar and
+// uploaded files are removed from storage, then the auth user is deleted, which cascades to
+// their profile, memberships, comments and attachment records.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -39,25 +40,51 @@ Deno.serve(async (req) => {
       return json({ error: 'Enter your two-factor code first, then try again.' }, 403);
     }
 
+    // Workspaces: the only admin of one with other people in it must hand it over first.
+    const { data: myWorkspaces } = await admin.from('workspace_members').select('workspace_id, role').eq('user_id', user.id);
+    const wsIds = (myWorkspaces ?? []).map((w) => w.workspace_id);
+    const { data: wsEveryone } = wsIds.length
+      ? await admin.from('workspace_members').select('workspace_id, user_id, role').in('workspace_id', wsIds)
+      : { data: [] };
+    const { data: wsRows } = wsIds.length ? await admin.from('workspaces').select('id, name').in('id', wsIds) : { data: [] };
+    const otherAdmin = (wsId: string) =>
+      (wsEveryone ?? []).find((m) => m.workspace_id === wsId && m.user_id !== user.id && m.role === 'admin')?.user_id;
+    const soloWorkspaces: string[] = [];
+    const blockedWorkspaces: string[] = [];
+    for (const w of wsRows ?? []) {
+      const rest = (wsEveryone ?? []).filter((m) => m.workspace_id === w.id && m.user_id !== user.id);
+      const mine = myWorkspaces!.find((m) => m.workspace_id === w.id);
+      if (rest.length === 0) soloWorkspaces.push(w.id);
+      else if (mine?.role === 'admin' && !otherAdmin(w.id)) blockedWorkspaces.push(w.name);
+    }
+    if (blockedWorkspaces.length) {
+      return json({
+        error: `You're the only admin of the ${blockedWorkspaces.join(', ')} workspace${blockedWorkspaces.length === 1 ? '' : 's'}. Make someone else an admin first.`,
+      }, 409);
+    }
+
     const { data: memberships } = await admin.from('project_members').select('project_id, role').eq('user_id', user.id);
     const projectIds = (memberships ?? []).map((m) => m.project_id);
     const { data: everyone } = projectIds.length
       ? await admin.from('project_members').select('project_id, user_id, role').in('project_id', projectIds)
       : { data: [] };
     const { data: projects } = projectIds.length
-      ? await admin.from('projects').select('id, name, owner_id').in('id', projectIds)
+      ? await admin.from('projects').select('id, name, owner_id, workspace_id').in('id', projectIds)
       : { data: [] };
 
     const others = (pid: string) => (everyone ?? []).filter((m) => m.project_id === pid && m.user_id !== user.id);
     const blocked: string[] = [];
     const solo: string[] = [];
-    const handOver: { id: string; to: string }[] = [];
+    const handOver: { id: string; to: string; join?: boolean }[] = [];
 
     for (const p of projects ?? []) {
       const rest = others(p.id);
       const mine = memberships!.find((m) => m.project_id === p.id);
       const otherOwner = rest.find((m) => m.role === 'owner');
-      if (rest.length === 0) solo.push(p.id);
+      // A project only they were in belongs to the company: it passes to a workspace admin when there is one.
+      const heir = rest.length === 0 ? otherAdmin(p.workspace_id) : undefined;
+      if (heir) handOver.push({ id: p.id, to: heir, join: true });
+      else if (rest.length === 0) solo.push(p.id);
       else if (mine?.role === 'owner' && !otherOwner) blocked.push(p.name);
       else if (p.owner_id === user.id && otherOwner) handOver.push({ id: p.id, to: otherOwner.user_id });
     }
@@ -68,6 +95,11 @@ Deno.serve(async (req) => {
     }
 
     for (const h of handOver) {
+      if (h.join) {
+        const { error } = await admin.from('project_members')
+          .upsert({ project_id: h.id, user_id: h.to, role: 'owner' }, { onConflict: 'project_id,user_id' });
+        if (error) throw error;
+      }
       const { error } = await admin.from('projects').update({ owner_id: h.to }).eq('id', h.id);
       if (error) throw error;
     }
@@ -94,10 +126,15 @@ Deno.serve(async (req) => {
       const { error } = await admin.from('projects').delete().in('id', solo);
       if (error) throw error;
     }
+    // Every project in a workspace only they were in was one of theirs, so it's gone by now.
+    if (soloWorkspaces.length) {
+      const { error } = await admin.from('workspaces').delete().in('id', soloWorkspaces);
+      if (error) throw error;
+    }
 
     const { error } = await admin.auth.admin.deleteUser(user.id);
     if (error) throw error;
-    return json({ deleted: true, projectsDeleted: solo.length });
+    return json({ deleted: true, projectsDeleted: solo.length, workspacesDeleted: soloWorkspaces.length });
   } catch (err) {
     console.error(err);
     return json({ error: 'Something went wrong deleting your account. Try again, and contact the project owner if it keeps failing.' }, 500);
