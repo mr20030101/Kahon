@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.3.0 — 2026-10-15
+
 ### Changed
 
 - Deleting a section (column) that has tasks now asks where to move them, and keeps them. Deleting the tasks as well takes a second, explicit confirmation. Needs `supabase/migrations/20261016_move_tasks_on_section_delete.sql`.
