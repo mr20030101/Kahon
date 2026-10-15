@@ -21,6 +21,7 @@ import AdminSecurity from './pages/AdminSecurity';
 import AdminErrors from './pages/AdminErrors';
 import AdminAI from './pages/AdminAI';
 import AdminEmails from './pages/AdminEmails';
+import AdminFiles from './pages/AdminFiles';
 
 function Shell() {
   const { session, loading, needsMfa, recovering } = useAuth();
@@ -52,6 +53,7 @@ function Shell() {
             <Route path="/admin/errors" element={<AdminErrors />} />
             <Route path="/admin/ai" element={<AdminAI />} />
             <Route path="/admin/emails" element={<AdminEmails />} />
+            <Route path="/admin/files" element={<AdminFiles />} />
             <Route path="/p/:projectId" element={<ProjectPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

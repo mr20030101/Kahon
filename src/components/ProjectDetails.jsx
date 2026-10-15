@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { formatDue } from '../lib/dates';
 import { Icon, Modal } from './ui';
 import ProjectFiles from './ProjectFiles';
@@ -37,6 +38,23 @@ const hostOf = (url) => {
   }
 };
 
+// Files in a completed project are deleted this long after it's marked Complete, when a super
+// admin has turned auto delete on. Keep in sync with app_settings.auto_delete_after.
+const FILE_CLEANUP_DAYS = 2;
+
+function useFileCleanup() {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    let live = true;
+    supabase.rpc('file_cleanup_enabled').then(({ data }) => live && setEnabled(!!data));
+    return () => { live = false; };
+  }, []);
+  return enabled;
+}
+
+const cleanupDate = (completedAt) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  .format(new Date(new Date(completedAt || Date.now()).getTime() + FILE_CLEANUP_DAYS * 86_400_000));
+
 export function StatusPill({ status }) {
   return <span className={`status-pill status-${status || 'on_track'}`}>{statusLabel(status)}</span>;
 }
@@ -57,6 +75,7 @@ export default function ProjectDetails({ project, isOwner, onSave, onClose }) {
 
 function DetailsView({ project, isOwner, onEdit }) {
   const links = Array.isArray(project.links) ? project.links : [];
+  const cleanup = useFileCleanup();
   return (
     <div className="project-details">
       <dl className="profile-facts">
@@ -87,6 +106,13 @@ function DetailsView({ project, isOwner, onEdit }) {
         ) : <p className="muted small">No links yet.</p>}
       </div>
 
+      {cleanup && project.status === 'complete' && (
+        <p className="muted small" role="note">
+          This project is complete, so its task attachments and reference files are deleted
+          after {cleanupDate(project.completed_at)}. Change the status to keep them.
+        </p>
+      )}
+
       <ProjectFiles projectId={project.id} isOwner={isOwner} />
 
       {isOwner && (
@@ -108,6 +134,7 @@ function DetailsForm({ project, onSave, onCancel }) {
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const cleanup = useFileCleanup();
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setLink = (i, key) => (e) => setForm((f) => ({
@@ -146,7 +173,9 @@ function DetailsForm({ project, onSave, onCancel }) {
             {PROJECT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </label>
-        <span />
+        {cleanup && form.status === 'complete' && project.status !== 'complete'
+          ? <p className="muted small" role="note">Files in this project are deleted {FILE_CLEANUP_DAYS} days after it's marked Complete.</p>
+          : <span />}
         <label className="label">Start date
           <input className="input" type="date" value={form.start_date} onChange={set('start_date')} />
         </label>

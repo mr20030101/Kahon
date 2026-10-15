@@ -1166,6 +1166,10 @@ button.label-chip.is-on { opacity: 1; box-shadow: 0 0 0 1.5px var(--chip); }
 .admin-list li { display: flex; align-items: center; gap: 12px; padding: 10px 14px; font-size: 14px; }
 .admin-list li + li { border-top: 1px solid var(--line); }
 .admin-list li > :first-child { flex: 1; min-width: 0; }
+.admin-switch { margin: 0 0 22px; }
+.admin-switch .menu-switch { padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.admin-switch .menu-switch > span:first-child { display: grid; gap: 2px; }
+.admin-switch > p { margin: 8px 0 0; }
 .admin-error summary { cursor: pointer; color: var(--ink); overflow-wrap: anywhere; }
 .admin-error pre { margin: 8px 0 0; padding: 10px; max-height: 240px; overflow: auto; border-radius: 8px; background: var(--surface-2); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .admin-table td.admin-error { max-width: 520px; min-width: 280px; }

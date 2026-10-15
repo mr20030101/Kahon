@@ -14,6 +14,12 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Super admin **File cleanup**: a switch that deletes task attachments and project reference files from projects 2 days after they're marked **Complete**. Off by default. Projects, tasks and comments stay, and reopening a project before then keeps its files. The page shows what's due now, what's coming up and what was deleted; turning it on or off is recorded in **Recent admin actions**.
+- **About this project** says when a completed project's files will be deleted while auto delete is on.
+- These need `supabase/migrations/20261015_file_cleanup.sql` and the `file-cleanup` Edge Function (`npx supabase functions deploy file-cleanup --no-verify-jwt`).
+
 ## 1.1.0 — 2026-10-10
 
 ### Added

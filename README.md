@@ -121,6 +121,17 @@ secret kept in Supabase Vault instead:
 npx supabase functions deploy reminders --no-verify-jwt
 ```
 
+### Auto delete files from completed projects
+
+The file-cleanup migration schedules an hourly job with `pg_cron` that calls the
+`file-cleanup` Edge Function while a super admin has turned it on (**Super admin → File
+cleanup**). It deletes the files of projects that have been Complete for 2 days. Deploy it
+without JWT checks; it uses the same Vault secret as the reminders job:
+
+```bash
+npx supabase functions deploy file-cleanup --no-verify-jwt
+```
+
 ### Error log
 
 Errors people hit in their browser are recorded in the `client_errors` table. Read them in

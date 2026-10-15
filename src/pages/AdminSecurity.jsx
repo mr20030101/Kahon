@@ -6,7 +6,11 @@ import { useSuperadmin } from '../hooks/useSuperadmin';
 import { AdminBody, AdminHead, AdminSection, dateLabel } from '../components/AdminParts';
 import { WorkspaceTile } from '../components/Workspaces';
 
-const ACTIONS = { resend_confirmation: 'Resent the confirmation email to' };
+const ACTIONS = {
+  resend_confirmation: 'Resent the confirmation email to',
+  auto_delete_files_on: 'Turned on auto delete for files in completed projects',
+  auto_delete_files_off: 'Turned off auto delete for files in completed projects',
+};
 
 function PersonCell({ p }) {
   return <div className="admin-person-copy"><strong>{p.name}</strong>{p.name !== p.email && <span>{p.email}</span>}</div>;

@@ -63,6 +63,9 @@ export default function Sidebar({ open, onNavigate }) {
             <NavLink to="/admin/emails" className="nav-item" onClick={onNavigate}>
               <Icon.inbox /> Emails sent
             </NavLink>
+            <NavLink to="/admin/files" className="nav-item" onClick={onNavigate}>
+              <Icon.trash /> File cleanup
+            </NavLink>
           </nav>
         </>
       )}
