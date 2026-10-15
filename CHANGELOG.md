@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.2.0 — 2026-10-15
+
 ### Added
 
 - Super admin **File cleanup**: a switch that deletes task attachments and project reference files from projects 2 days after they're marked **Complete**. Off by default. Projects, tasks and comments stay, and reopening a project before then keeps its files. The page shows what's due now, what's coming up and what was deleted; turning it on or off is recorded in **Recent admin actions**.
