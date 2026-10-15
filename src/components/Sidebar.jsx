@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useInbox } from '../hooks/useInbox';
+import { useTabAlerts } from '../hooks/useTabAlerts';
 import { useWorkspace } from '../context/WorkspaceContext';
 import NewProjectModal from './NewProjectModal';
 import SettingsModal from './SettingsModal';
@@ -11,7 +12,8 @@ import { Avatar, Icon, Lockup } from './ui';
 export default function Sidebar({ open, onNavigate }) {
   const { user, profile, signOut } = useAuth();
   const { currentProjects: all, current, isAdmin, loaded } = useWorkspace();
-  const { unread } = useInbox(user?.id, { limit: 50 });
+  const { items: notifications, unread } = useInbox(user?.id, { limit: 50 });
+  useTabAlerts(notifications);
   const [showArchived, setShowArchived] = useState(false);
   const projects = all.filter((p) => !p.archived_at);
   const archived = all.filter((p) => p.archived_at);

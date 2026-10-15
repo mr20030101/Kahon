@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { confirmDialog, isDialogOpen } from '../lib/dialog';
 import { getTheme, setTheme } from '../lib/theme';
+import { getSoundOn, playChime, setSoundOn } from '../lib/tabAlerts';
 import { AVATAR_COLORS, avatarUrl, removeAvatarFile, timeZones, uploadAvatar } from '../lib/profiles';
 import { MAX_IMAGE_INPUT_BYTES } from '../lib/uploads';
 import { Icon } from './ui';
@@ -221,6 +222,13 @@ function NotificationsSection() {
     if (error) toast(error.message, 'error');
   };
 
+  const [sound, setSound] = useState(getSoundOn);
+  const toggleSound = () => {
+    setSoundOn(!sound);
+    setSound(!sound);
+    if (!sound) playChime(); // a preview, so they know what it sounds like
+  };
+
   return (
     <div className="settings-form">
       <div className="setting-row">
@@ -235,6 +243,20 @@ function NotificationsSection() {
           <input type="checkbox" checked={on} onChange={toggle} disabled={!profile} />
           <span aria-hidden="true" />
           <span className="sr-only">Email notifications</span>
+        </label>
+      </div>
+      <div className="setting-row">
+        <div>
+          <strong>Notification sound</strong>
+          <p className="muted small">
+            A short chime when something new reaches your inbox while Kahon is open. Applies to this
+            browser only.
+          </p>
+        </div>
+        <label className="switch-toggle">
+          <input type="checkbox" checked={sound} onChange={toggleSound} />
+          <span aria-hidden="true" />
+          <span className="sr-only">Notification sound</span>
         </label>
       </div>
     </div>
