@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.4.0 — 2026-10-15
+
 ### Added
 
 - Every task has a short ID like **866b1c2jx**. **Copy task ID** in a task's **⋯** menu copies it.
