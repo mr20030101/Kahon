@@ -7,6 +7,7 @@ import { flash, lift, settle } from '../lib/motion';
 import { columnDndId, dropPosition, sectionDndId, taskDrop, typedCollisions, useDndSensors } from '../lib/dnd';
 import { AssigneeSelect, Avatar, Check, DueInput, EditableText, Icon, InlineAdd, PrioritySelect } from './ui';
 import { confirmDialog } from '../lib/dialog';
+import { useDeleteSection } from './DeleteSectionDialog';
 import { LabelChips } from './LabelsModal';
 
 export function subtaskCounts(tasks) {
@@ -63,6 +64,7 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
   };
 
   const activeSection = active?.type === 'section' ? sections.find((s) => s.id === active.sectionId) : null;
+  const deleteSection = useDeleteSection(sections, actions);
 
   // Drop selections for tasks that are no longer shown (deleted, filtered out, completed and hidden).
   const visibleIds = new Set(top.map((t) => t.id));
@@ -87,6 +89,7 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
               actions={actions}
               onOpen={onOpen}
               folded={active?.type === 'section'}
+              onDeleteSection={deleteSection.ask}
             />
           ))}
         </SortableContext>
@@ -118,6 +121,7 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
     {chosen.length > 0 && !readOnly && (
       <BulkBar ids={chosen} sections={sections} members={members} actions={actions} onClear={() => setSelected(new Set())} />
     )}
+    {deleteSection.dialog}
     </ListContext.Provider>
   );
 }
@@ -128,7 +132,7 @@ function Lifted({ as: Tag = 'div', rotate, children, ...props }) {
   return <Tag ref={ref} {...props}>{children}</Tag>;
 }
 
-function ListSection({ section, tasks, counts, members, actions, onOpen, folded }) {
+function ListSection({ section, tasks, counts, members, actions, onOpen, folded, onDeleteSection }) {
   const { readOnly } = useContext(ListContext);
   const [collapsed, setCollapsed] = useState(false);
   const sortable = useSortable({ id: sectionDndId(section.id), data: { type: 'section', sectionId: section.id }, disabled: readOnly });
@@ -137,17 +141,7 @@ function ListSection({ section, tasks, counts, members, actions, onOpen, folded 
   // While any section is being dragged, show headers only so sections are easy to reorder.
   const showTasks = !collapsed && !folded;
 
-  const remove = async () => {
-    const ok = await confirmDialog({
-      title: `Delete "${section.name}"?`,
-      text: tasks.length
-        ? `Its ${tasks.length} task${tasks.length === 1 ? '' : 's'} will be deleted too. This can't be undone.`
-        : "This can't be undone.",
-      confirmText: 'Delete section',
-      danger: true,
-    });
-    if (ok) actions.deleteSection(section.id);
-  };
+  const remove = () => onDeleteSection(section);
 
   return (
     <section ref={sortable.setNodeRef} style={style}

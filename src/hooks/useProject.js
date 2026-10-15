@@ -166,13 +166,29 @@ export function useProject(projectId) {
     if (error) fail(error);
   }, [fail, upsert]);
 
-  const deleteSection = useCallback(async (id) => {
+  // Top-level tasks in a section, completed and hidden ones included.
+  const sectionTaskCount = useCallback(
+    (id) => ref.current.tasks.filter((t) => t.section_id === id && !t.parent_id).length,
+    [],
+  );
+
+  // With moveTo, the section's tasks move there first and nothing is deleted but the section.
+  // The database does both in one step, so a failed move never takes the tasks with it.
+  const deleteSection = useCallback(async (id, moveTo = null) => {
+    if (moveTo) {
+      remove('sections', id);
+      setState((st) => ({ ...st, tasks: st.tasks.map((t) => (t.section_id === id ? { ...t, section_id: moveTo } : t)) }));
+      const { error } = await supabase.rpc('delete_section_move_tasks', { p_section: id, p_target: moveTo });
+      if (error) fail(error);
+      else load(true); // the moved tasks' new positions
+      return;
+    }
     remove('sections', id);
     setState((st) => ({ ...st, tasks: st.tasks.filter((t) => t.section_id !== id) }));
     await removeAttachmentFiles({ sectionId: id });
     const { error } = await supabase.from('sections').delete().eq('id', id);
     if (error) fail(error);
-  }, [fail, remove]);
+  }, [fail, remove, load]);
 
   // ---------- Project ----------
   const updateProject = useCallback(async (patch) => {
@@ -262,7 +278,7 @@ export function useProject(projectId) {
     reload: () => load(true),
     actions: {
       createTask, updateTask, patchLocal, removeLocal,
-      createSection, renameSection, moveSection, deleteSection,
+      createSection, renameSection, moveSection, deleteSection, sectionTaskCount,
       updateProject, deleteProject, setArchived, duplicateProject,
       bulkUpdate, bulkDelete,
       createLabel, updateLabel, deleteLabel,

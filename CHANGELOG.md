@@ -14,6 +14,15 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Changed
+
+- Deleting a section (column) that has tasks now asks where to move them, and keeps them. Deleting the tasks as well takes a second, explicit confirmation. Needs `supabase/migrations/20261016_move_tasks_on_section_delete.sql`.
+
+### Added
+
+- Unread notifications show in the browser tab like Facebook: a red dot on the Kahon icon and the count in the title, e.g. **(3) Kahon**.
+- A short chime when a new notification arrives while Kahon is open, played once even with several tabs open. Turn it off under **Settings → Notifications → Notification sound** (per browser).
+
 ## 1.2.0 — 2026-10-15
 
 ### Added

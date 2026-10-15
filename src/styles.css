@@ -678,6 +678,7 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .settings-label { font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .settings-subhead { font-size: 15px; }
 .settings-actions { display: flex; align-items: center; gap: 12px; }
+.delete-section-actions { flex-wrap: wrap; }
 .settings-form .input:disabled { color: var(--ink-3); background: var(--surface-2); }
 .textarea { height: auto; padding: 10px 12px; resize: vertical; line-height: 1.5; font: inherit; }
 .required { color: var(--danger); }

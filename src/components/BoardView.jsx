@@ -8,7 +8,7 @@ import { columnDndId, dropPosition, sectionDndId, taskDrop, typedCollisions, use
 import { subtaskCounts } from './ListView';
 import { LabelChips } from './LabelsModal';
 import { Avatar, Check, DueLabel, EditableText, Icon, InlineAdd, PriorityTag } from './ui';
-import { confirmDialog } from '../lib/dialog';
+import { useDeleteSection } from './DeleteSectionDialog';
 
 export default function BoardView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask, readOnly }) {
   const [active, setActive] = useState(null);
@@ -58,6 +58,7 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
 
   const activeTask = active?.type === 'task' ? active.task : null;
   const activeSection = active?.type === 'section' ? sections.find((s) => s.id === active.sectionId) : null;
+  const deleteSection = useDeleteSection(sections, actions);
 
   return (
     <DndContext sensors={sensors} collisionDetection={typedCollisions}
@@ -66,7 +67,7 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
         <SortableContext items={sections.map((s) => sectionDndId(s.id))} strategy={horizontalListSortingStrategy}>
           {sections.map((s) => (
             <Column key={s.id} section={s} tasks={columnTasks(s.id)} counts={counts} memberById={memberById} deco={deco}
-              actions={actions} onOpen={onOpen} readOnly={readOnly} />
+              actions={actions} onOpen={onOpen} readOnly={readOnly} onDeleteSection={deleteSection.ask} />
           ))}
         </SortableContext>
         {!readOnly && (
@@ -87,26 +88,17 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
           </LiftedColumn>
         )}
       </DragOverlay>
+      {deleteSection.dialog}
     </DndContext>
   );
 }
 
-function Column({ section, tasks, counts, memberById, deco, actions, onOpen, readOnly }) {
+function Column({ section, tasks, counts, memberById, deco, actions, onOpen, readOnly, onDeleteSection }) {
   const sortable = useSortable({ id: sectionDndId(section.id), data: { type: 'section', sectionId: section.id }, disabled: readOnly });
   const { setNodeRef, isOver } = useDroppable({ id: columnDndId(section.id), data: { type: 'column', sectionId: section.id } });
   const style = { transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition };
 
-  const remove = async () => {
-    const ok = await confirmDialog({
-      title: `Delete "${section.name}"?`,
-      text: tasks.length
-        ? `Its ${tasks.length} task${tasks.length === 1 ? '' : 's'} will be deleted too. This can't be undone.`
-        : "This can't be undone.",
-      confirmText: 'Delete section',
-      danger: true,
-    });
-    if (ok) actions.deleteSection(section.id);
-  };
+  const remove = () => onDeleteSection(section);
 
   return (
     <section ref={sortable.setNodeRef} style={style}
