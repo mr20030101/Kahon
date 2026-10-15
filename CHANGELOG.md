@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.5.0 — 2026-10-15
+
 ### Added
 
 - A header bar above every page, with a search field that opens task search (**Ctrl K** / **⌘K** still works).
