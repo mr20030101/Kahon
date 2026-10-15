@@ -23,6 +23,7 @@ import AdminAI from './pages/AdminAI';
 import AdminEmails from './pages/AdminEmails';
 import AdminFiles from './pages/AdminFiles';
 import SearchPalette from './components/SearchPalette';
+import Topbar from './components/Topbar';
 
 function Shell() {
   const { session, loading, needsMfa, recovering } = useAuth();
@@ -41,10 +42,7 @@ function Shell() {
         <SearchPalette />
         {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
         <main className="main">
-          <div className="mobile-bar">
-            <button className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Open menu"><Icon.menu /></button>
-            <Lockup height={27} />
-          </div>
+          <Topbar onOpenNav={() => setNavOpen(true)} />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/my-tasks" element={<MyTasks />} />

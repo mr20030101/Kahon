@@ -14,6 +14,16 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- A header bar above every page, with a search field that opens task search (**Ctrl K** / **⌘K** still works).
+- The page behind task search is blurred while it's open, and the search box sits in the middle of the screen.
+
+### Changed
+
+- Profile settings and **Sign out** moved from the bottom of the sidebar to a menu under your name and avatar in the header.
+- **Search** is no longer in the sidebar; use the header's search field or **Ctrl K** / **⌘K**.
+
 ## 1.4.0 — 2026-10-15
 
 ### Added

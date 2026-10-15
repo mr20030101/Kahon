@@ -5,13 +5,11 @@ import { useInbox } from '../hooks/useInbox';
 import { useTabAlerts } from '../hooks/useTabAlerts';
 import { useWorkspace } from '../context/WorkspaceContext';
 import NewProjectModal from './NewProjectModal';
-import { SEARCH_SHORTCUT, openSearch } from './SearchPalette';
-import SettingsModal from './SettingsModal';
 import { WorkspaceInvitations, WorkspaceSwitcher } from './Workspaces';
-import { Avatar, Icon, Lockup } from './ui';
+import { Icon, Lockup } from './ui';
 
 export default function Sidebar({ open, onNavigate }) {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile } = useAuth();
   const { currentProjects: all, current, isAdmin, loaded } = useWorkspace();
   const { items: notifications, unread } = useInbox(user?.id, { limit: 50 });
   useTabAlerts(notifications);
@@ -19,7 +17,6 @@ export default function Sidebar({ open, onNavigate }) {
   const projects = all.filter((p) => !p.archived_at);
   const archived = all.filter((p) => p.archived_at);
   const [showNew, setShowNew] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <aside className={`sidebar${open ? ' is-open' : ''}`}>
@@ -31,10 +28,6 @@ export default function Sidebar({ open, onNavigate }) {
       <WorkspaceInvitations />
 
       <nav className="side-nav">
-        <button type="button" className="nav-item" onClick={() => { onNavigate?.(); openSearch(); }}>
-          <Icon.search /> Search
-          <kbd className="nav-kbd">{SEARCH_SHORTCUT}</kbd>
-        </button>
         <NavLink to="/" end className="nav-item" onClick={onNavigate}>
           <Icon.home /> Home
         </NavLink>
@@ -115,24 +108,7 @@ export default function Sidebar({ open, onNavigate }) {
         ))}
       </nav>
 
-      <div className="side-foot">
-        <button type="button" className="side-me" onClick={() => setShowSettings(true)} title="Profile and settings">
-          <Avatar profile={profile} size={30} />
-          <span className="side-user">
-            <strong className="truncate">{profile?.full_name || 'Loading…'}</strong>
-            <span className="truncate">{profile?.job_title || profile?.email}</span>
-          </span>
-        </button>
-        <button className="icon-btn on-dark" onClick={() => setShowSettings(true)} aria-label="Settings" title="Settings">
-          <Icon.settings />
-        </button>
-        <button className="icon-btn on-dark" onClick={signOut} aria-label="Sign out" title="Sign out">
-          <Icon.logout />
-        </button>
-      </div>
-
       {showNew && <NewProjectModal onClose={() => setShowNew(false)} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </aside>
   );
 }
