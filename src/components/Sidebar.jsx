@@ -5,6 +5,7 @@ import { useInbox } from '../hooks/useInbox';
 import { useTabAlerts } from '../hooks/useTabAlerts';
 import { useWorkspace } from '../context/WorkspaceContext';
 import NewProjectModal from './NewProjectModal';
+import { SEARCH_SHORTCUT, openSearch } from './SearchPalette';
 import SettingsModal from './SettingsModal';
 import { WorkspaceInvitations, WorkspaceSwitcher } from './Workspaces';
 import { Avatar, Icon, Lockup } from './ui';
@@ -30,6 +31,10 @@ export default function Sidebar({ open, onNavigate }) {
       <WorkspaceInvitations />
 
       <nav className="side-nav">
+        <button type="button" className="nav-item" onClick={() => { onNavigate?.(); openSearch(); }}>
+          <Icon.search /> Search
+          <kbd className="nav-kbd">{SEARCH_SHORTCUT}</kbd>
+        </button>
         <NavLink to="/" end className="nav-item" onClick={onNavigate}>
           <Icon.home /> Home
         </NavLink>

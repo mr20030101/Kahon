@@ -195,15 +195,20 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
     toast('Task duplicated');
   };
 
-  const copyLink = async () => {
+  const copyText = async (text, done) => {
     setShowMenu(false);
-    const url = `${window.location.origin}/p/${task.project_id}?task=${taskId}`;
     try {
-      await navigator.clipboard.writeText(url);
-      toast('Link copied');
+      await navigator.clipboard.writeText(text);
+      toast(done);
     } catch {
-      toast(url);
+      toast(text);
     }
+  };
+  const copyLink = () => copyText(`${window.location.origin}/p/${task.project_id}?task=${taskId}`, 'Link copied');
+  const copyId = () => {
+    if (task.short_id) return copyText(task.short_id, `Task ID ${task.short_id} copied`);
+    setShowMenu(false);
+    toast("This task doesn't have an ID yet. Refresh the page and try again.", 'error');
   };
 
   const deleteSubtask = async (sub) => {
@@ -313,6 +318,9 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
             </button>
           )}
           <span className="spacer" />
+          {status === 'ready' && task.short_id && (
+            <button type="button" className="task-id" onClick={copyId} title="Copy task ID">{task.short_id}</button>
+          )}
           {status === 'ready' && (
             <div className="menu-wrap">
               <button className="icon-btn" onClick={() => setShowMenu((v) => !v)} aria-label="Task options" aria-expanded={showMenu} title="More"><Icon.more /></button>
@@ -323,6 +331,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                     <button className="menu-item" onClick={() => { setShowMenu(false); setMoving(true); }}><Icon.move /> Move to project…</button>
                   )}
                   <button className="menu-item" onClick={copyLink}><Icon.link /> Copy link</button>
+                  <button className="menu-item" onClick={copyId}><Icon.copy /> Copy task ID</button>
                   {editable && <button className="menu-item danger" onClick={() => { setShowMenu(false); deleteTask(); }}><Icon.trash /> Delete task</button>}
                 </div>
               )}

@@ -22,6 +22,7 @@ import AdminErrors from './pages/AdminErrors';
 import AdminAI from './pages/AdminAI';
 import AdminEmails from './pages/AdminEmails';
 import AdminFiles from './pages/AdminFiles';
+import SearchPalette from './components/SearchPalette';
 
 function Shell() {
   const { session, loading, needsMfa, recovering } = useAuth();
@@ -37,6 +38,7 @@ function Shell() {
     <WorkspaceProvider>
       <div className="app">
         <Sidebar open={navOpen} onNavigate={() => setNavOpen(false)} />
+        <SearchPalette />
         {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
         <main className="main">
           <div className="mobile-bar">

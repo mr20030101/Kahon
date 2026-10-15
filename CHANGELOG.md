@@ -14,6 +14,11 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Every task has a short ID like **866b1c2jx**. **Copy task ID** in a task's **⋯** menu copies it.
+- **Search** (sidebar, or **Ctrl K** / **⌘K** anywhere): find any task in the current workspace by title or by its ID (the whole ID or its first 4+ characters), including completed tasks, subtasks and archived projects, and open it. Needs `supabase/migrations/20261016_task_search.sql`.
+
 ## 1.3.0 — 2026-10-15
 
 ### Changed
