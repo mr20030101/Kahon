@@ -12,7 +12,13 @@ const BUCKET = 'attachments';
 const CHUNK = 100; // storage.remove takes a list of paths; keep each request small
 
 type Due = { project_id: string; project_name: string; workspace: string | null; files: number; bytes: number };
-type FileRow = { id: string; path: string; size_bytes: number };
+type FileRow = { id: string; path: string; size_bytes: number; mime_type?: string };
+
+// Images (not GIFs) have a thumbnail stored next to them; see thumbPathOf in src/lib/uploads.js.
+const storedPaths = (f: FileRow) =>
+  f.mime_type?.startsWith('image/') && f.mime_type !== 'image/gif'
+    ? [f.path, f.path.replace(/\.[a-z0-9]+$/i, '') + '.thumb.webp']
+    : [f.path];
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -40,7 +46,7 @@ Deno.serve(async (req) => {
       if (project?.status !== 'complete') continue;
 
       const [{ data: attachments }, { data: projectFiles }] = await Promise.all([
-        admin.from('task_attachments').select('id, path, size_bytes').eq('project_id', p.project_id),
+        admin.from('task_attachments').select('id, path, size_bytes, mime_type').eq('project_id', p.project_id),
         admin.from('project_files').select('id, path, size_bytes').eq('project_id', p.project_id),
       ]);
       const all = [...(attachments ?? []), ...(projectFiles ?? [])] as FileRow[];
@@ -48,8 +54,9 @@ Deno.serve(async (req) => {
 
       // Storage first: a row without its file is harmless, a file without its row is never cleaned up.
       let failed = false;
-      for (let i = 0; i < all.length; i += CHUNK) {
-        const { error: rmError } = await admin.storage.from(BUCKET).remove(all.slice(i, i + CHUNK).map((f) => f.path));
+      const paths = all.flatMap(storedPaths);
+      for (let i = 0; i < paths.length; i += CHUNK) {
+        const { error: rmError } = await admin.storage.from(BUCKET).remove(paths.slice(i, i + CHUNK));
         if (rmError) {
           console.error(`file-cleanup: storage remove failed for ${p.project_id}`, rmError.message);
           failed = true;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
-import { cleanFileName } from '../lib/uploads';
+import { CACHE_FOREVER, cleanFileName } from '../lib/uploads';
 import { classify, extOf, formatBytes, prepareFile, withUrls } from './Attachments';
 import FileViewer, { previewKindOf } from './FileViewer';
 import { Icon } from './ui';
@@ -65,7 +65,7 @@ export default function ProjectFiles({ projectId, isOwner }) {
       try {
         const { body, ext, mime } = await prepareFile(file, type);
         const path = `${projectId}/project/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime });
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
         if (upErr) throw upErr;
         const name = cleanFileName(file.name, ext);
         const { data, error } = await supabase.from('project_files')

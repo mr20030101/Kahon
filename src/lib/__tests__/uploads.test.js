@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanFileName, fitWithin, matchesSignature } from '../uploads';
+import { cleanFileName, fitWithin, matchesSignature, thumbPathOf } from '../uploads';
 
 const bytes = (...parts) => new Uint8Array(parts.flatMap((p) => (typeof p === 'string' ? [...p].map((c) => c.charCodeAt(0)) : p)));
 
@@ -49,5 +49,13 @@ describe('fitWithin', () => {
 
   it('never enlarges small images', () => {
     expect(fitWithin(800, 600, 3200)).toEqual({ width: 800, height: 600 });
+  });
+});
+
+describe('thumbPathOf', () => {
+  it('stores the thumbnail next to the image', () => {
+    expect(thumbPathOf('p1/t1/abc.png')).toBe('p1/t1/abc.thumb.webp');
+    expect(thumbPathOf('p1/t1/abc.webp')).toBe('p1/t1/abc.thumb.webp');
+    expect(thumbPathOf('p1/t1/abc.JPG')).toBe('p1/t1/abc.thumb.webp');
   });
 });

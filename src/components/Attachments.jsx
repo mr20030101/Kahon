@@ -3,7 +3,9 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { Icon } from './ui';
 import FileViewer, { previewKindOf } from './FileViewer';
-import { MAX_IMAGE_INPUT_BYTES, cleanFileName, hasValidSignature, processImage } from '../lib/uploads';
+import {
+  CACHE_FOREVER, MAX_IMAGE_INPUT_BYTES, cleanFileName, hasValidSignature, makeThumbnail, processImage, thumbPathOf,
+} from '../lib/uploads';
 
 const BUCKET = 'attachments';
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -69,15 +71,30 @@ export function formatBytes(n) {
   return `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 }
 
+// Images other than GIFs (which keep their animation in the grid) get a thumbnail on upload.
+export const hasThumb = (row) => row.mime_type?.startsWith('image/') && row.mime_type !== 'image/gif';
+
+// Every stored object for an attachment row: the file, and its thumbnail if it has one.
+export const storedPaths = (row) => (hasThumb(row) ? [row.path, thumbPathOf(row.path)] : [row.path]);
+
+// Uploads an image's thumbnail. Best effort: without one the grid shows the full image.
+export async function uploadThumbnail(path, image) {
+  const thumb = await makeThumbnail(image).catch(() => null);
+  if (!thumb) return;
+  await supabase.storage.from(BUCKET)
+    .upload(thumbPathOf(path), thumb.blob, { contentType: thumb.mime, cacheControl: CACHE_FOREVER })
+    .catch(() => {});
+}
+
 // Remove stored files before deleting tasks, a section or a project. Attachment rows
 // go with their task via cascade, but storage objects need the Storage API.
 export async function removeAttachmentFiles({ taskIds, sectionId, projectId }) {
-  let query = supabase.from('task_attachments').select('path, task:tasks!inner(section_id)');
+  let query = supabase.from('task_attachments').select('path, mime_type, task:tasks!inner(section_id)');
   if (taskIds) query = query.in('task_id', taskIds);
   if (sectionId) query = query.eq('task.section_id', sectionId);
   if (projectId) query = query.eq('project_id', projectId);
   const { data } = await query;
-  const paths = (data || []).map((a) => a.path);
+  const paths = (data || []).flatMap(storedPaths);
   if (projectId) {
     const { data: files } = await supabase.from('project_files').select('path').eq('project_id', projectId);
     paths.push(...(files || []).map((f) => f.path));
@@ -85,17 +102,39 @@ export async function removeAttachmentFiles({ taskIds, sectionId, projectId }) {
   if (paths.length) await supabase.storage.from(BUCKET).remove(paths);
 }
 
-// Signed view URLs for everything, plus a download URL that keeps the original
-// filename for files the browser can't show.
+// Signed URLs are kept for the session and reused until shortly before they expire. Each
+// new signature is a new URL to the browser, so re-signing on every open downloaded every
+// image again; reusing the URL lets the browser serve it from its cache.
+const signed = new Map(); // key -> { url, expires }
+const REUSE_UNTIL = 5 * 60 * 1000; // re-sign once a URL has less than this left
+const cached = (key) => {
+  const hit = signed.get(key);
+  return hit && hit.expires - REUSE_UNTIL > Date.now() ? hit : null;
+};
+const remember = (key, url) => signed.set(key, { url, expires: Date.now() + URL_TTL * 1000 });
+
+// Signed view URLs for everything, a thumbnail URL for images (the full image when there's no
+// thumbnail, e.g. one uploaded before thumbnails existed), and a download URL that keeps the
+// original filename for files the browser can't show.
 export async function withUrls(rows) {
   if (!rows.length) return rows;
   const storage = supabase.storage.from(BUCKET);
-  const { data } = await storage.createSignedUrls(rows.map((r) => r.path), URL_TTL);
-  const byPath = Object.fromEntries((data || []).map((d) => [d.path, d.signedUrl]));
+  const wanted = rows.flatMap(storedPaths).filter((p) => !cached(p));
+  if (wanted.length) {
+    const { data } = await storage.createSignedUrls(wanted, URL_TTL);
+    // A missing thumbnail comes back with an error and no URL; remembering that saves asking again.
+    for (const d of data || []) if (d.path) remember(d.path, d.signedUrl || null);
+  }
   return Promise.all(rows.map(async (r) => {
     const kind = kindOf(r);
-    const { data: dl } = await storage.createSignedUrl(r.path, URL_TTL, { download: r.name });
-    return { ...r, kind, url: byPath[r.path], downloadUrl: dl?.signedUrl };
+    const dlKey = `${r.path}#download=${r.name}`;
+    if (!cached(dlKey)) {
+      const { data: dl } = await storage.createSignedUrl(r.path, URL_TTL, { download: r.name });
+      if (dl?.signedUrl) remember(dlKey, dl.signedUrl);
+    }
+    const url = cached(r.path)?.url;
+    const thumbUrl = (hasThumb(r) && cached(thumbPathOf(r.path))?.url) || url;
+    return { ...r, kind, url, thumbUrl, downloadUrl: cached(dlKey)?.url };
   }));
 }
 
@@ -145,8 +184,10 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
       try {
         const { body, ext, mime } = await prepareFile(file, type);
         const path = `${task.project_id}/${task.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime });
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
         if (upErr) throw upErr;
+        // Before the row exists, so everyone the new row reaches can load the thumbnail.
+        if (hasThumb({ mime_type: mime })) await uploadThumbnail(path, body);
         const name = cleanFileName(file.name && file.name !== 'image.png' ? file.name : 'Pasted image', ext);
         if (file.size - body.size > 1024 * 1024) toast(`Compressed ${name} from ${formatBytes(file.size)} to ${formatBytes(body.size)}`);
         const { data, error } = await supabase
@@ -155,7 +196,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
           .select()
           .single();
         if (error) {
-          await supabase.storage.from(BUCKET).remove([path]);
+          await supabase.storage.from(BUCKET).remove(storedPaths({ path, mime_type: mime }));
           throw error;
         }
         const [withUrl] = await withUrls([data]);
@@ -202,7 +243,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
       setItems((list) => [...list, item]);
       return toast(error.message, 'error');
     }
-    await supabase.storage.from(BUCKET).remove([item.path]);
+    await supabase.storage.from(BUCKET).remove(storedPaths(item));
   };
 
   return (
@@ -213,7 +254,10 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
           <figure key={a.id} className={`attachment${a.kind === 'image' ? '' : ' is-file'}`}>
             {a.kind === 'image' ? (
               <button className="attachment-thumb" onClick={() => setViewing(a)} aria-label={`View ${a.name}`}>
-                {a.url ? <img src={a.url} alt={a.name} loading="lazy" /> : <span className="muted small">Unavailable</span>}
+                {a.thumbUrl ? (
+                  <img src={a.thumbUrl} alt={a.name} loading="lazy"
+                    onError={(e) => { if (a.url && e.currentTarget.src !== a.url) e.currentTarget.src = a.url; }} />
+                ) : <span className="muted small">Unavailable</span>}
               </button>
             ) : (
               <a className="attachment-file" title={previewKindOf(a.name) ? `Preview ${a.name}` : `Download ${a.name}`}

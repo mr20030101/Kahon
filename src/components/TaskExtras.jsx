@@ -5,6 +5,8 @@ import { notify } from '../lib/notify';
 import { useToast } from '../context/ToastContext';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { Avatar, Icon, Modal } from './ui';
+import { hasThumb } from './Attachments';
+import { thumbPathOf } from '../lib/uploads';
 
 // Pieces of the task panel: labels, extra assignees, repeat, activity history, moving.
 
@@ -229,11 +231,13 @@ export function MoveTaskModal({ task, onClose, onMoved }) {
       // Attachment files are stored under the project's folder, so they move first.
       const { data: subs } = await supabase.from('tasks').select('id').eq('parent_id', task.id);
       const ids = [task.id, ...(subs || []).map((s) => s.id)];
-      const { data: files } = await supabase.from('task_attachments').select('path').in('task_id', ids);
+      const { data: files } = await supabase.from('task_attachments').select('path, mime_type').in('task_id', ids);
       for (const f of files || []) {
         const to = projectId + f.path.slice(task.project_id.length);
         const { error } = await supabase.storage.from('attachments').move(f.path, to);
         if (error) throw error;
+        // Images uploaded before thumbnails existed have none, so a failed thumbnail move is fine.
+        if (hasThumb(f)) await supabase.storage.from('attachments').move(thumbPathOf(f.path), thumbPathOf(to));
       }
       const { error } = await supabase.rpc('move_task', { p_task: task.id, p_project: projectId, p_section: sectionId });
       if (error) throw error;
