@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { Icon } from './ui';
 import FileViewer, { previewKindOf } from './FileViewer';
+import { FILE_CLEANUP_DAYS, cleanupDate, useFileCleanup } from '../hooks/useFileCleanup';
 import {
   CACHE_FOREVER, MAX_IMAGE_INPUT_BYTES, cleanFileName, hasValidSignature, makeThumbnail, processImage, thumbPathOf,
 } from '../lib/uploads';
@@ -146,6 +147,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
   const [viewing, setViewing] = useState(null);
   const [previewing, setPreviewing] = useState(null);
   const inputRef = useRef(null);
+  const cleanup = useFileCleanup();
 
   useEffect(() => {
     let alive = true;
@@ -249,6 +251,13 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
   return (
     <>
       <h4 className="panel-h">Attachments {items.length > 0 && <span className="count">{items.length}</span>}</h4>
+      {cleanup && task.completed && items.length > 0 && (
+        <p className="muted small" role="note">
+          This task is complete, so its attachments are deleted {FILE_CLEANUP_DAYS} days later
+          {new Date(task.completed_at) > Date.now() - FILE_CLEANUP_DAYS * 86_400_000 ? `, after ${cleanupDate(task.completed_at)}` : ''}
+          {' '}(files added since get {FILE_CLEANUP_DAYS} days from when they're added). Reopen the task to keep them.
+        </p>
+      )}
       <div className="attachments">
         {items.map((a) => (
           <figure key={a.id} className={`attachment${a.kind === 'image' ? '' : ' is-file'}`}>
