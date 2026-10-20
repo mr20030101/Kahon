@@ -9,11 +9,13 @@ import { AdminBody, AdminHead, AdminSection, dateLabel, number } from '../compon
 const total = (rows, key) => rows.reduce((sum, r) => sum + Number(r[key] || 0), 0);
 const plural = (n, word) => `${number(n)} ${word}${Number(n) === 1 ? '' : 's'}`;
 
+// A project, or a task with its project under it.
 function ProjectCell({ p }) {
-  return <div className="admin-person-copy"><strong>{p.project_name}</strong>{p.workspace && <span>{p.workspace}</span>}</div>;
+  const where = p.task_title ? [p.project_name, p.workspace].filter(Boolean).join(' · ') : p.workspace;
+  return <div className="admin-person-copy"><strong>{p.task_title || p.project_name}</strong>{where && <span>{where}</span>}</div>;
 }
 
-// Auto delete files from completed projects. The switch and every report go through RPCs that
+// Auto delete files from completed projects and tasks. The switch and every report go through RPCs that
 // refuse anyone who isn't a super admin; the hourly file-cleanup function does the deleting.
 export default function AdminFiles() {
   const toast = useToast();
@@ -23,6 +25,10 @@ export default function AdminFiles() {
   const d = data || {};
   const due = d.due || [];
   const upcoming = d.upcoming || [];
+  const dueTasks = d.due_tasks || [];
+  const upcomingTasks = d.upcoming_tasks || [];
+  const dueAll = [...due, ...dueTasks];
+  const upcomingAll = [...upcoming, ...upcomingTasks];
   const log = d.log || [];
   const days = d.after_days ?? 2;
 
@@ -30,13 +36,14 @@ export default function AdminFiles() {
     const ok = on
       ? await confirmDialog({
         title: 'Turn on auto delete?',
-        text: `Files in projects that have been Complete for ${days} days are permanently deleted, checked every hour.`
-          + (due.length ? ` ${plural(total(due, 'files'), 'file')} in ${plural(due.length, 'project')} will be deleted within the hour.` : '')
+        text: `Files in projects that have been Complete for ${days} days, and attachments of tasks completed ${days} days ago,`
+          + ' are permanently deleted, checked every hour.'
+          + (dueAll.length ? ` ${plural(total(dueAll, 'files'), 'file')} will be deleted within the hour.` : '')
           + ' Projects, tasks and comments stay. Deleted files cannot be recovered.',
         confirmText: 'Turn on',
         danger: true,
       })
-      : await confirmDialog({ title: 'Turn off auto delete?', text: 'Files in completed projects are kept until you turn it back on.', confirmText: 'Turn off' });
+      : await confirmDialog({ title: 'Turn off auto delete?', text: 'Files in completed projects and tasks are kept until you turn it back on.', confirmText: 'Turn off' });
     if (!ok) return;
     setSaving(true);
     const { error: saveError } = await supabase.rpc('admin_set_auto_delete_files', { p_on: on });
@@ -48,37 +55,38 @@ export default function AdminFiles() {
 
   return (
     <div className="page">
-      <AdminHead title="File cleanup" description={`Delete the files in projects ${days} days after they're marked Complete.`}
+      <AdminHead title="File cleanup" description={`Delete the files in projects and tasks ${days} days after they're completed.`}
         onRefresh={load} loading={status === 'loading'} />
       <AdminBody status={status} error={error} onRetry={load} what="file cleanup">
         <section className="admin-section admin-switch">
           <label className="menu-switch">
             <span>
-              <strong>Auto delete files from completed projects</strong>
+              <strong>Auto delete files from completed projects and tasks</strong>
               <span className="muted small">
                 {d.enabled ? 'On' : 'Off'}{d.updated_by ? ` · changed by ${d.updated_by} on ${dateLabel(d.updated_at, true)}` : ''}
               </span>
             </span>
             <span className="switch-toggle">
               <input type="checkbox" checked={!!d.enabled} disabled={saving} onChange={(e) => toggle(e.target.checked)}
-                aria-label="Auto delete files from completed projects" />
+                aria-label="Auto delete files from completed projects and tasks" />
               <span aria-hidden="true" />
             </span>
           </label>
           <p className="muted small">
-            Task attachments and project reference files are deleted. Projects, tasks and comments stay.
-            Reopening a project before then keeps its files.
+            A completed project loses its task attachments and reference files; a completed task or
+            subtask loses its attachments (a file added after completion gets its own {days} days).
+            Projects, tasks and comments stay. Reopening before then keeps the files.
           </p>
         </section>
 
         <div className="admin-stats" aria-label="File cleanup summary">
-          <div><strong>{number(total(due, 'files'))}</strong><span>Files due now</span></div>
-          <div><strong>{formatBytes(total(due, 'bytes'))}</strong><span>Space due now</span></div>
-          <div><strong>{number(total(upcoming, 'files'))}</strong><span>Files due in the next {days} days</span></div>
+          <div><strong>{number(total(dueAll, 'files'))}</strong><span>Files due now</span></div>
+          <div><strong>{formatBytes(total(dueAll, 'bytes'))}</strong><span>Space due now</span></div>
+          <div><strong>{number(total(upcomingAll, 'files'))}</strong><span>Files due in the next {days} days</span></div>
           <div><strong>{formatBytes(total(log, 'bytes'))}</strong><span>Freed (last {log.length} runs)</span></div>
         </div>
 
-        <AdminSection title={d.enabled ? 'Due now' : 'Would be deleted now'} count={due.length}
+        <AdminSection title={d.enabled ? 'Projects due now' : 'Projects that would be deleted now'} count={due.length}
           note={d.enabled ? 'Deleted at the next hourly run.' : `Complete for ${days} days or more. Nothing is deleted while auto delete is off.`}>
           {due.length === 0 ? <p className="muted">No completed project has files waiting.</p> : (
             <ul className="admin-list">
@@ -92,13 +100,40 @@ export default function AdminFiles() {
           )}
         </AdminSection>
 
-        <AdminSection title="Coming up" count={upcoming.length} note={`Completed in the last ${days} days.`}>
+        <AdminSection title="Projects coming up" count={upcoming.length} note={`Completed in the last ${days} days.`}>
           {upcoming.length === 0 ? <p className="muted">No recently completed project has files.</p> : (
             <ul className="admin-list">
               {upcoming.map((p) => (
                 <li key={p.project_id}>
                   <ProjectCell p={p} />
                   <span className="muted small">Deleted after {dateLabel(p.delete_after, true)} · {plural(p.files, 'file')} · {formatBytes(p.bytes)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </AdminSection>
+
+        <AdminSection title={d.enabled ? 'Tasks due now' : 'Tasks that would be deleted now'} count={dueTasks.length}
+          note={d.enabled ? 'Attachments deleted at the next hourly run.' : `Completed ${days} days ago or more. Nothing is deleted while auto delete is off.`}>
+          {dueTasks.length === 0 ? <p className="muted">No completed task has files waiting.</p> : (
+            <ul className="admin-list">
+              {dueTasks.map((t) => (
+                <li key={t.task_id}>
+                  <ProjectCell p={t} />
+                  <span className="muted small">Completed {dateLabel(t.completed_at)} · {plural(t.files, 'file')} · {formatBytes(t.bytes)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </AdminSection>
+
+        <AdminSection title="Tasks coming up" count={upcomingTasks.length} note={`Completed, or given new files, in the last ${days} days.`}>
+          {upcomingTasks.length === 0 ? <p className="muted">No recently completed task has files.</p> : (
+            <ul className="admin-list">
+              {upcomingTasks.map((t) => (
+                <li key={t.task_id}>
+                  <ProjectCell p={t} />
+                  <span className="muted small">First deleted after {dateLabel(t.delete_after, true)} · {plural(t.files, 'file')} · {formatBytes(t.bytes)}</span>
                 </li>
               ))}
             </ul>

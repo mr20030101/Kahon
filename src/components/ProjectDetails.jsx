@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDue } from '../lib/dates';
 import { Icon, Modal } from './ui';
 import ProjectFiles from './ProjectFiles';
+import { cleanupDate, useFileCleanup } from '../hooks/useFileCleanup';
 
 // Project overview: description, status, dates, links and reference files. Every member can read it;
 // owners can edit it (projects update policy is owner-only).
@@ -37,23 +38,6 @@ const hostOf = (url) => {
     return '';
   }
 };
-
-// Files in a completed project are deleted this long after it's marked Complete, when a super
-// admin has turned auto delete on. Keep in sync with app_settings.auto_delete_after.
-const FILE_CLEANUP_DAYS = 2;
-
-function useFileCleanup() {
-  const [enabled, setEnabled] = useState(false);
-  useEffect(() => {
-    let live = true;
-    supabase.rpc('file_cleanup_enabled').then(({ data }) => live && setEnabled(!!data));
-    return () => { live = false; };
-  }, []);
-  return enabled;
-}
-
-const cleanupDate = (completedAt) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-  .format(new Date(new Date(completedAt || Date.now()).getTime() + FILE_CLEANUP_DAYS * 86_400_000));
 
 export function StatusPill({ status }) {
   return <span className={`status-pill status-${status || 'on_track'}`}>{statusLabel(status)}</span>;
