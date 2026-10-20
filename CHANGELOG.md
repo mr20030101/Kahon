@@ -14,6 +14,14 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.5.1 — 2026-10-17
+
+### Fixed
+
+- Image attachments use far less of the Supabase download quota. The attachment grid shows a small thumbnail (480px) instead of the full image, which now loads only when you open it. Images attached before this update keep showing at full size in the grid.
+- Reopening a task no longer downloads its images again: file links are reused for the session, so the browser serves them from its cache.
+- Uploaded files are marked as never changing, so browsers keep them instead of checking again every hour.
+
 ## 1.5.0 — 2026-10-15
 
 ### Added

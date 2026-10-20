@@ -131,3 +131,48 @@ export async function processImage(file, ext) {
     bitmap.close?.();
   }
 }
+
+// Longest side of the small copy shown in the attachment grid (tiles are about 120px, so this
+// stays sharp on high-density screens). The full image loads only when someone opens it.
+export const THUMB_EDGE = 480;
+// Stored files never change (each upload gets a new path), so browsers and the CDN may keep them.
+export const CACHE_FOREVER = '31536000';
+
+/** Where an image's thumbnail is stored: next to it, so the same storage policies cover it. */
+export function thumbPathOf(path) {
+  return path.replace(/\.[a-z0-9]+$/i, '') + '.thumb.webp';
+}
+
+/**
+ * A small copy of an image for the attachment grid. WebP, or JPEG in browsers that can't
+ * encode WebP (Safari); the path is the same either way and the stored type says which.
+ * Returns { blob, mime }, or null when the image can't be read.
+ */
+export async function makeThumbnail(image) {
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(image);
+  } catch {
+    return null;
+  }
+  try {
+    const size = fitWithin(bitmap.width, bitmap.height, THUMB_EDGE);
+    const canvas = document.createElement('canvas');
+    canvas.width = size.width;
+    canvas.height = size.height;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    // JPEG has no transparency, so transparent screenshots get a white background instead of black.
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, size.width, size.height);
+    ctx.drawImage(bitmap, 0, 0, size.width, size.height);
+    const webp = await toBlob(canvas, 'image/webp', 0.8);
+    const out = webp?.type === 'image/webp'
+      ? { blob: webp, mime: 'image/webp' }
+      : { blob: await toBlob(canvas, 'image/jpeg', 0.8), mime: 'image/jpeg' };
+    canvas.width = 0;
+    return out.blob ? out : null;
+  } finally {
+    bitmap.close?.();
+  }
+}
