@@ -186,9 +186,6 @@ export default function ProjectPage() {
               <Icon.info width="15" height="15" /> {canComment(myRole) ? 'Can comment' : 'View only'}
             </span>
           )}
-          <button className="btn btn-ghost" onClick={() => setShowDetails(true)} title="Project details">
-            <Icon.info /> About
-          </button>
           <button className="avatar-stack" onClick={() => setShowMembers(true)} title="Members">
             {members.slice(0, 4).map((m) => <Avatar key={m.user_id} profile={m.profile} size={28} />)}
             {members.length > 4 && <span className="avatar more">+{members.length - 4}</span>}
@@ -206,7 +203,7 @@ export default function ProjectPage() {
                   </span>
                 </label>
                 <button className="menu-item" onClick={() => { setShowMenu(false); setShowDetails(true); }}>
-                  <Icon.info /> Project details
+                  <Icon.info /> About this project
                 </button>
                 {!readOnly && (
                   <button className="menu-item" onClick={() => { setShowMenu(false); setShowLabels(true); }}>

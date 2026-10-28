@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { byPosition } from '../lib/position';
-import { timeAgo } from '../lib/dates';
+import { formatCreated, timeAgo } from '../lib/dates';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import Attachments, { removeAttachmentFiles } from './Attachments';
@@ -380,6 +380,8 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
               <dd><ExtraAssignees taskId={taskId} members={members} mainAssignee={task.assignee_id} readOnly={!editable} /></dd>
               <dt>Due date</dt>
               <dd><DueInput value={task.due_date} completed={task.completed} onChange={(v) => save({ due_date: v })} disabled={!editable} /></dd>
+              <dt>Created</dt>
+              <dd><span className="field-static" title={new Date(task.created_at).toLocaleString()}>{formatCreated(task.created_at)}</span></dd>
               <dt>Priority</dt>
               <dd><PrioritySelect value={task.priority} onChange={(v) => save({ priority: v })} disabled={!editable} /></dd>
               <dt>Labels</dt>

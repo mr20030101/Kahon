@@ -412,6 +412,8 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-
 .due.overdue { color: var(--danger); font-weight: 600; }
 .due.soon { color: var(--soon); font-weight: 600; }
 
+.created { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.card > .created { display: block; margin-top: 6px; }
 .mini-count { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 
 .editable { cursor: text; border-radius: 6px; }
@@ -433,7 +435,7 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 @media (hover: none) { .reveal { opacity: 1; } }
 
 /* ============ List view ============ */
-.row-grid { display: grid; grid-template-columns: minmax(0, 1fr) 170px 130px 110px; align-items: center; gap: 8px; }
+.row-grid { display: grid; grid-template-columns: minmax(0, 1fr) 170px 130px 110px 80px; align-items: center; gap: 8px; }
 .list-head { padding: 0 12px 8px 44px; font-size: 13px; font-weight: 600; color: var(--ink-3); border-bottom: 1px solid var(--line); }
 .list-section { margin-top: 20px; }
 .list-section-head { display: flex; align-items: center; gap: 6px; padding: 4px 0 8px; }
@@ -573,6 +575,7 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .fields { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 6px 10px; margin: 0 0 20px; }
 .fields dt { font-size: 14px; color: var(--ink-2); }
 .fields dd { margin: 0 0 0 -8px; min-width: 0; }
+.fields .field-static { display: inline-flex; align-items: center; min-height: 30px; padding: 2px 8px; font-size: 14px; }
 .panel-h { font-size: 15px; margin: 22px 0 8px; display: flex; align-items: center; gap: 8px; }
 .description {
   width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; resize: vertical;
@@ -1100,7 +1103,7 @@ button.label-chip.is-on { opacity: 1; box-shadow: 0 0 0 1.5px var(--chip); }
 /* ============ Responsive ============ */
 @media (max-width: 900px) {
   .row-grid { grid-template-columns: minmax(0, 1fr) 44px 110px; }
-  .row-grid > :nth-child(4) { display: none; }
+  .row-grid > :nth-child(4), .row-grid > :nth-child(5) { display: none; }
   .list-head span:nth-child(2) { visibility: hidden; }
   .task-row .field-select .truncate { display: none; }
 }
