@@ -18,6 +18,11 @@ before versioning was set up shipped as 0.1.0.
 
 - Auto delete now also covers single tasks: with it on, a task's or subtask's attachments are deleted 2 days after it's completed, even while its project is still open. A file added after completion gets its own 2 days, and reopening the task keeps its files. Tasks completed before this update count from the day it's installed. The File cleanup page lists tasks due now and coming up, and a completed task says when its attachments go.
 - These need `supabase/migrations/20261020_task_file_cleanup.sql` and a redeploy of the `file-cleanup` Edge Function.
+- Every task shows the date it was created: a **Created** column in the List view (hidden on narrow screens), a "Created" line on Board cards, and a Created row in the task panel. Hover any of them for the exact time. Tasks were always stamped with this date, so existing tasks show theirs too.
+
+### Changed
+
+- The project's **About** button has moved into the **⋯** menu, as **About this project** (it replaces the menu's "Project details" item, which opened the same window).
 
 ### Fixed
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { dueTone, formatDue } from '../lib/dates';
+import { dueTone, formatCreatedShort, formatDue } from '../lib/dates';
 import { PRIORITIES } from '../lib/constants';
 import { avatarUrl } from '../lib/profiles';
 
@@ -129,6 +129,11 @@ export function PriorityTag({ value }) {
 export function DueLabel({ value, completed }) {
   if (!value) return null;
   return <span className={`due ${dueTone(value, completed)}`}>{formatDue(value)}</span>;
+}
+
+export function CreatedLabel({ value, prefix = '' }) {
+  if (!value) return null;
+  return <span className="created" title={`Created ${new Date(value).toLocaleString()}`}>{prefix}{formatCreatedShort(value)}</span>;
 }
 
 export function Modal({ title, onClose, children, width = 440 }) {

@@ -7,7 +7,7 @@ import { lift, settle } from '../lib/motion';
 import { columnDndId, dropPosition, sectionDndId, taskDrop, typedCollisions, useDndSensors } from '../lib/dnd';
 import { subtaskCounts } from './ListView';
 import { LabelChips } from './LabelsModal';
-import { Avatar, Check, DueLabel, EditableText, Icon, InlineAdd, PriorityTag } from './ui';
+import { Avatar, Check, CreatedLabel, DueLabel, EditableText, Icon, InlineAdd, PriorityTag } from './ui';
 import { useDeleteSection } from './DeleteSectionDialog';
 
 export default function BoardView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask, readOnly }) {
@@ -182,6 +182,7 @@ function CardBody({ task, count, memberById, deco, onToggle, lifted }) {
           </span>
         </div>
       )}
+      <CreatedLabel value={task.created_at} prefix="Created " />
     </article>
   );
 }

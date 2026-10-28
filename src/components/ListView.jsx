@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { byPosition } from '../lib/position';
 import { flash, lift, settle } from '../lib/motion';
 import { columnDndId, dropPosition, sectionDndId, taskDrop, typedCollisions, useDndSensors } from '../lib/dnd';
-import { AssigneeSelect, Avatar, Check, DueInput, EditableText, Icon, InlineAdd, PrioritySelect } from './ui';
+import { AssigneeSelect, Avatar, Check, CreatedLabel, DueInput, EditableText, Icon, InlineAdd, PrioritySelect } from './ui';
 import { confirmDialog } from '../lib/dialog';
 import { useDeleteSection } from './DeleteSectionDialog';
 import { LabelChips } from './LabelsModal';
@@ -76,7 +76,7 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
       onDragStart={({ active: drag }) => setActive(drag.data.current)} onDragCancel={() => setActive(null)} onDragEnd={onDragEnd}>
       <div className="list" ref={listRef}>
         <div className="list-head row-grid" aria-hidden="true">
-          <span>Task</span><span>Assignee</span><span>Due date</span><span>Priority</span>
+          <span>Task</span><span>Assignee</span><span>Due date</span><span>Priority</span><span>Created</span>
         </div>
         <SortableContext items={sections.map((s) => sectionDndId(s.id))} strategy={verticalListSortingStrategy}>
           {sections.map((s) => (
@@ -218,6 +218,7 @@ function TaskRow({ task, count, members, actions, onOpen }) {
       <AssigneeSelect value={task.assignee_id} members={members} onChange={(v) => set({ assignee_id: v })} disabled={readOnly} />
       <DueInput value={task.due_date} completed={task.completed} onChange={(v) => set({ due_date: v })} disabled={readOnly} />
       <PrioritySelect value={task.priority} onChange={(v) => set({ priority: v })} disabled={readOnly} />
+      <CreatedLabel value={task.created_at} />
     </div>
   );
 }
