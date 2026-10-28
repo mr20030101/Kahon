@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.6.0 — 2026-10-28
+
 ### Added
 
 - Auto delete now also covers single tasks: with it on, a task's or subtask's attachments are deleted 2 days after it's completed, even while its project is still open. A file added after completion gets its own 2 days, and reopening the task keeps its files. Tasks completed before this update count from the day it's installed. The File cleanup page lists tasks due now and coming up, and a completed task says when its attachments go.
