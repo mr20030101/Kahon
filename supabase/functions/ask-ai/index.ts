@@ -10,6 +10,7 @@
 import Groq from 'npm:groq-sdk@^1.6.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { CORS, json, requireUser } from '../_shared/auth.ts';
+import { downloadFromDrive, driveConfigured } from '../_shared/drive.ts';
 import { readAttachmentText } from './extract.ts';
 
 const MODEL = Deno.env.get('GROQ_MODEL') || 'openai/gpt-oss-120b';
@@ -172,7 +173,7 @@ async function loadTask(admin: SupabaseClient, id: string, userId: string, scale
     task.parent_id ? admin.from('tasks').select('title').eq('id', task.parent_id).single() : Promise.resolve({ data: null }),
     admin.from('tasks').select('title, completed').eq('parent_id', id).order('position'),
     admin.from('comments').select('body, created_at, author:profiles(full_name)').eq('task_id', id).order('created_at'),
-    admin.from('task_attachments').select('name, path, size_bytes').eq('task_id', id).order('created_at'),
+    admin.from('task_attachments').select('name, path, size_bytes, drive_file_id').eq('task_id', id).order('created_at'),
     loadProject(admin, task.project_id, scale),
   ]);
 
@@ -209,7 +210,7 @@ async function loadTask(admin: SupabaseClient, id: string, userId: string, scale
 async function loadProject(admin: SupabaseClient, projectId: string, scale = 1) {
   const [{ data: p }, { data: files }] = await Promise.all([
     admin.from('projects').select('name, description, status, start_date, due_date, links').eq('id', projectId).single(),
-    admin.from('project_files').select('name, path, size_bytes').eq('project_id', projectId).order('created_at'),
+    admin.from('project_files').select('name, path, size_bytes, drive_file_id').eq('project_id', projectId).order('created_at'),
   ]);
   if (!p) return '(Unknown project)';
   const links = Array.isArray(p.links) ? p.links as { label?: string; url: string }[] : [];
@@ -245,7 +246,8 @@ const inFolder = (path: string, folder: string) =>
   path.startsWith(folder) && !path.slice(folder.length).includes('/') && !path.includes('..');
 
 async function fileTexts(
-  admin: SupabaseClient, files: { name: string; path: string; size_bytes: number }[], limits: Budget, tag: string, folder: string,
+  admin: SupabaseClient, files: { name: string; path: string; size_bytes: number; drive_file_id?: string | null }[],
+  limits: Budget, tag: string, folder: string,
 ) {
   files = files.filter((f) => inFolder(f.path, folder));
   const out: string[] = [];
@@ -260,9 +262,18 @@ async function fileTexts(
       continue;
     }
     try {
-      const { data } = await admin.storage.from('attachments').download(f.path);
-      if (!data) continue;
-      const text = await readAttachmentText(f.name, new Uint8Array(await data.arrayBuffer()));
+      // In Google Drive (newer uploads; the check_drive_ids trigger ties the id to this row's
+      // project), or the attachments bucket (older ones).
+      let bytes: Uint8Array | null = null;
+      if (f.drive_file_id) {
+        bytes = driveConfigured() ? await downloadFromDrive(f.drive_file_id) : null;
+        if (!bytes) throw new Error('not in Google Drive, or Drive is not set up for Edge Functions');
+      } else {
+        const { data } = await admin.storage.from('attachments').download(f.path);
+        if (data) bytes = new Uint8Array(await data.arrayBuffer());
+      }
+      if (!bytes) continue;
+      const text = await readAttachmentText(f.name, bytes);
       if (text === null) continue; // images and formats we can't read
       const limit = Math.min(limits.perFile, budget);
       const clipped = text.length > limit;

@@ -228,10 +228,12 @@ export function MoveTaskModal({ task, onClose, onMoved }) {
   const move = async () => {
     setBusy(true);
     try {
-      // Attachment files are stored under the project's folder, so they move first.
+      // Attachment files in storage are under the project's folder, so they move first. Files in
+      // Google Drive stay where they are: who can open them goes by their row, which move_task updates.
       const { data: subs } = await supabase.from('tasks').select('id').eq('parent_id', task.id);
       const ids = [task.id, ...(subs || []).map((s) => s.id)];
-      const { data: files } = await supabase.from('task_attachments').select('path, mime_type').in('task_id', ids);
+      const { data: files } = await supabase.from('task_attachments').select('path, mime_type').in('task_id', ids)
+        .is('drive_file_id', null);
       for (const f of files || []) {
         const to = projectId + f.path.slice(task.project_id.length);
         const { error } = await supabase.storage.from('attachments').move(f.path, to);

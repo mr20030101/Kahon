@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { CACHE_FOREVER, cleanFileName } from '../lib/uploads';
+import { purgeDriveTrash, uploadToDrive } from '../lib/drive';
 import { classify, extOf, formatBytes, prepareFile, withUrls } from './Attachments';
 import FileViewer, { previewKindOf } from './FileViewer';
 import { Icon } from './ui';
@@ -32,14 +33,14 @@ export default function ProjectFiles({ projectId, isOwner }) {
         if (alive) setItems([]);
         return;
       }
-      const rows = await withUrls(data || []);
+      const rows = await withUrls(data || [], 'project_files');
       if (alive) setItems(rows);
     })();
     const channel = supabase
       .channel(`project-files-${projectId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'project_files', filter: `project_id=eq.${projectId}` },
         async ({ new: row }) => {
-          const [withUrl] = await withUrls([row]);
+          const [withUrl] = await withUrls([row], 'project_files');
           setItems((list) => (list?.some((x) => x.id === row.id) ? list : [...(list || []), withUrl]));
         })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'project_files' },
@@ -64,18 +65,23 @@ export default function ProjectFiles({ projectId, isOwner }) {
     await Promise.all(ok.map(async ({ file, type }) => {
       try {
         const { body, ext, mime } = await prepareFile(file, type);
-        const path = `${projectId}/project/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
-        if (upErr) throw upErr;
         const name = cleanFileName(file.name, ext);
-        const { data, error } = await supabase.from('project_files')
-          .insert({ project_id: projectId, path, name, mime_type: mime, size_bytes: body.size })
-          .select().single();
-        if (error) {
-          await supabase.storage.from(BUCKET).remove([path]);
-          throw error;
+        // Google Drive when it's set up (the row is added with the file), else Supabase Storage.
+        let data = await uploadToDrive({ projectId, name, body, mime });
+        if (!data) {
+          const path = `${projectId}/project/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
+          if (upErr) throw upErr;
+          const inserted = await supabase.from('project_files')
+            .insert({ project_id: projectId, path, name, mime_type: mime, size_bytes: body.size })
+            .select().single();
+          if (inserted.error) {
+            await supabase.storage.from(BUCKET).remove([path]);
+            throw inserted.error;
+          }
+          data = inserted.data;
         }
-        const [withUrl] = await withUrls([data]);
+        const [withUrl] = await withUrls([data], 'project_files');
         setItems((list) => (list?.some((x) => x.id === data.id) ? list : [...(list || []), withUrl]));
       } catch (err) {
         toast(`Could not upload ${file.name}: ${err.message}`, 'error');
@@ -92,7 +98,8 @@ export default function ProjectFiles({ projectId, isOwner }) {
       setItems((list) => [...list, item]);
       return toast(error.message, 'error');
     }
-    await supabase.storage.from(BUCKET).remove([item.path]);
+    if (item.drive_file_id) purgeDriveTrash();
+    else await supabase.storage.from(BUCKET).remove([item.path]);
   };
 
   const count = items?.length ?? 0;
