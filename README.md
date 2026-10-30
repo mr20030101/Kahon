@@ -133,6 +133,44 @@ Deploy it without JWT checks; it uses the same Vault secret as the reminders job
 npx supabase functions deploy file-cleanup --no-verify-jwt
 ```
 
+### Files in Google Drive
+
+New task attachments and project reference files can be kept in a Google Drive folder
+instead of Supabase Storage. Files uploaded
+before this stay in Supabase Storage and keep working. Until Drive is set up, uploads go to
+Supabase Storage as before.
+
+1. Run `supabase/migrations/20261030_google_drive_files.sql` in **Supabase → SQL Editor**.
+2. Create a folder in Google Drive and copy its id (the last part of its URL).
+3. Choose how the app signs in to Drive:
+   - **A Google account** (works with plain Gmail): create an OAuth client in Google Cloud
+     Console with the Drive API turned on, then get a refresh token for that account with the
+     `https://www.googleapis.com/auth/drive` scope (for example with the OAuth 2.0 Playground,
+     using your own client). Files then count toward that account's storage.
+   - **A service account** (Google Workspace): the folder has to be in a Shared Drive the
+     service account is a member of, since a service account has no storage of its own.
+4. In Vercel's environment variables, set `GOOGLE_DRIVE_FOLDER_ID`, either
+   `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` + `GOOGLE_OAUTH_REFRESH_TOKEN` or
+   `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`, plus
+   `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API) and `CRON_SECRET` (any long
+   random string). Never give these a `VITE_` prefix: that would put them in the page. Redeploy.
+5. So Ask AI can read files in Drive, set the same `GOOGLE_*` values as Supabase secrets and
+   redeploy it:
+
+   ```bash
+   npx supabase secrets set GOOGLE_OAUTH_CLIENT_ID=... GOOGLE_OAUTH_CLIENT_SECRET=... GOOGLE_OAUTH_REFRESH_TOKEN=...
+   npx supabase functions deploy ask-ai
+   ```
+
+How it works (`api/files.js`, `src/lib/driveFiles.js`): the browser asks the function to start
+an upload, which checks the person can add files there, and then sends the file straight to
+Google (Vercel Functions only accept 4.5 MB). The function checks what arrived, then adds the
+row with the person's own access, so the usual permissions apply. Files are opened through
+signed links to `/api/files` that last an hour or two, like Supabase's. When a file's row is
+deleted, however that happens, the file is queued and deleted from Drive straight away or by
+the daily Vercel cron job. To test uploads to Drive locally, run `npx vercel dev` instead of
+`npm run dev`.
+
 ### Error log
 
 Errors people hit in their browser are recorded in the `client_errors` table. Read them in

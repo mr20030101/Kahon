@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { Icon } from './ui';
 import FileViewer, { previewKindOf } from './FileViewer';
 import { FILE_CLEANUP_DAYS, cleanupDate, useFileCleanup } from '../hooks/useFileCleanup';
+import { purgeDriveTrash, signDriveUrls, uploadToDrive } from '../lib/drive';
 import {
   CACHE_FOREVER, MAX_IMAGE_INPUT_BYTES, cleanFileName, hasValidSignature, makeThumbnail, processImage, thumbPathOf,
 } from '../lib/uploads';
@@ -75,12 +76,16 @@ export function formatBytes(n) {
 // Images other than GIFs (which keep their animation in the grid) get a thumbnail on upload.
 export const hasThumb = (row) => row.mime_type?.startsWith('image/') && row.mime_type !== 'image/gif';
 
-// Every stored object for an attachment row: the file, and its thumbnail if it has one.
-export const storedPaths = (row) => (hasThumb(row) ? [row.path, thumbPathOf(row.path)] : [row.path]);
+// Every object in Supabase Storage for a row: the file, and its thumbnail if it has one. None for
+// a file in Google Drive, which goes when its row does (the drive_trash trigger).
+export const storedPaths = (row) => {
+  if (row.drive_file_id) return [];
+  return hasThumb(row) ? [row.path, thumbPathOf(row.path)] : [row.path];
+};
 
-// Uploads an image's thumbnail. Best effort: without one the grid shows the full image.
-export async function uploadThumbnail(path, image) {
-  const thumb = await makeThumbnail(image).catch(() => null);
+// Uploads an image's thumbnail to storage. Best effort: without one the grid shows the full image.
+export async function uploadThumbnail(path, image, made) {
+  const thumb = made ?? await makeThumbnail(image).catch(() => null);
   if (!thumb) return;
   await supabase.storage.from(BUCKET)
     .upload(thumbPathOf(path), thumb.blob, { contentType: thumb.mime, cacheControl: CACHE_FOREVER })
@@ -90,15 +95,15 @@ export async function uploadThumbnail(path, image) {
 // Remove stored files before deleting tasks, a section or a project. Attachment rows
 // go with their task via cascade, but storage objects need the Storage API.
 export async function removeAttachmentFiles({ taskIds, sectionId, projectId }) {
-  let query = supabase.from('task_attachments').select('path, mime_type, task:tasks!inner(section_id)');
+  let query = supabase.from('task_attachments').select('path, mime_type, drive_file_id, task:tasks!inner(section_id)');
   if (taskIds) query = query.in('task_id', taskIds);
   if (sectionId) query = query.eq('task.section_id', sectionId);
   if (projectId) query = query.eq('project_id', projectId);
   const { data } = await query;
   const paths = (data || []).flatMap(storedPaths);
   if (projectId) {
-    const { data: files } = await supabase.from('project_files').select('path').eq('project_id', projectId);
-    paths.push(...(files || []).map((f) => f.path));
+    const { data: files } = await supabase.from('project_files').select('path, drive_file_id').eq('project_id', projectId);
+    paths.push(...(files || []).flatMap(storedPaths));
   }
   if (paths.length) await supabase.storage.from(BUCKET).remove(paths);
 }
@@ -112,12 +117,31 @@ const cached = (key) => {
   const hit = signed.get(key);
   return hit && hit.expires - REUSE_UNTIL > Date.now() ? hit : null;
 };
-const remember = (key, url) => signed.set(key, { url, expires: Date.now() + URL_TTL * 1000 });
+const remember = (key, url, expires = Date.now() + URL_TTL * 1000) => signed.set(key, { url, expires });
 
 // Signed view URLs for everything, a thumbnail URL for images (the full image when there's no
 // thumbnail, e.g. one uploaded before thumbnails existed), and a download URL that keeps the
-// original filename for files the browser can't show.
-export async function withUrls(rows) {
+// original filename for files the browser can't show. `table` is the rows' table, which the
+// server reads Drive rows from to check the caller can see them.
+export async function withUrls(rows, table = 'task_attachments') {
+  if (!rows.length) return rows;
+  const inDrive = rows.filter((r) => r.drive_file_id);
+  const unsigned = inDrive.filter((r) => !cached(`drive:${r.id}`)).map((r) => r.id);
+  if (unsigned.length) {
+    const { urls, expires } = await signDriveUrls(table, unsigned);
+    for (const [id, u] of Object.entries(urls)) remember(`drive:${id}`, u, expires);
+  }
+  const fromDrive = (r) => {
+    const u = cached(`drive:${r.id}`)?.url;
+    return { ...r, kind: kindOf(r), url: u?.url, thumbUrl: u?.thumbUrl || u?.url, downloadUrl: u?.downloadUrl };
+  };
+  const inStorage = rows.filter((r) => !r.drive_file_id);
+  const done = new Map(inDrive.map((r) => [r.id, fromDrive(r)]));
+  for (const r of await withStorageUrls(inStorage)) done.set(r.id, r);
+  return rows.map((r) => done.get(r.id));
+}
+
+async function withStorageUrls(rows) {
   if (!rows.length) return rows;
   const storage = supabase.storage.from(BUCKET);
   const wanted = rows.flatMap(storedPaths).filter((p) => !cached(p));
@@ -185,22 +209,28 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
     await Promise.all(ok.map(async ({ file, type }) => {
       try {
         const { body, ext, mime } = await prepareFile(file, type);
-        const path = `${task.project_id}/${task.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
-        if (upErr) throw upErr;
-        // Before the row exists, so everyone the new row reaches can load the thumbnail.
-        if (hasThumb({ mime_type: mime })) await uploadThumbnail(path, body);
         const name = cleanFileName(file.name && file.name !== 'image.png' ? file.name : 'Pasted image', ext);
-        if (file.size - body.size > 1024 * 1024) toast(`Compressed ${name} from ${formatBytes(file.size)} to ${formatBytes(body.size)}`);
-        const { data, error } = await supabase
-          .from('task_attachments')
-          .insert({ task_id: task.id, project_id: task.project_id, path, name, mime_type: mime, size_bytes: body.size, created_by: userId })
-          .select()
-          .single();
-        if (error) {
-          await supabase.storage.from(BUCKET).remove(storedPaths({ path, mime_type: mime }));
-          throw error;
+        const thumb = hasThumb({ mime_type: mime }) ? await makeThumbnail(body).catch(() => null) : null;
+        // Google Drive when it's set up (the row is added with the file), else Supabase Storage.
+        let data = await uploadToDrive({ projectId: task.project_id, taskId: task.id, name, body, mime, thumb });
+        if (!data) {
+          const path = `${task.project_id}/${task.id}/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
+          if (upErr) throw upErr;
+          // Before the row exists, so everyone the new row reaches can load the thumbnail.
+          if (thumb) await uploadThumbnail(path, body, thumb);
+          const inserted = await supabase
+            .from('task_attachments')
+            .insert({ task_id: task.id, project_id: task.project_id, path, name, mime_type: mime, size_bytes: body.size, created_by: userId })
+            .select()
+            .single();
+          if (inserted.error) {
+            await supabase.storage.from(BUCKET).remove(storedPaths({ path, mime_type: mime }));
+            throw inserted.error;
+          }
+          data = inserted.data;
         }
+        if (file.size - body.size > 1024 * 1024) toast(`Compressed ${name} from ${formatBytes(file.size)} to ${formatBytes(body.size)}`);
         const [withUrl] = await withUrls([data]);
         setItems((list) => (list.some((x) => x.id === data.id) ? list : [...list, withUrl]));
       } catch (err) {
@@ -245,7 +275,8 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
       setItems((list) => [...list, item]);
       return toast(error.message, 'error');
     }
-    await supabase.storage.from(BUCKET).remove(storedPaths(item));
+    if (item.drive_file_id) purgeDriveTrash();
+    else await supabase.storage.from(BUCKET).remove(storedPaths(item));
   };
 
   return (

@@ -14,6 +14,11 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Task attachments and project reference files can be kept in Google Drive instead of Supabase Storage. New uploads go to a Drive folder once it's set up (see "Files in Google Drive" in the README); files uploaded before stay in Supabase Storage and keep working. Until it's set up, nothing changes.
+- This needs `supabase/migrations/20261030_google_drive_files.sql`, the Google and `SUPABASE_SERVICE_ROLE_KEY` / `CRON_SECRET` settings in Vercel, and, for Ask AI to read files in Drive, the same Google settings as Supabase secrets and a redeploy of the `ask-ai` Edge Function.
+
 ## 1.6.0 — 2026-10-28
 
 ### Added
