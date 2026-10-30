@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.7.0 — 2026-10-30
+
 ### Added
 
 - Task attachments and project reference files can be kept in Google Drive instead of Supabase Storage. New uploads go to a Drive folder once it's set up (see "Files in Google Drive" in the README); files uploaded before stay in Supabase Storage and keep working. Until it's set up, nothing changes.
