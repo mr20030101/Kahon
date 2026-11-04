@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+import { confirmDialog } from '../lib/dialog';
 import { purgeDriveTrash } from '../lib/drive';
 import { Icon } from './ui';
-import { FileTile, checkFiles, deleteAttachment, extOf, storedPaths, uploadAttachment, withUrls } from './Attachments';
+import { FileTile, UploadingTile, checkFiles, deleteAttachment, extOf, storedPaths, uploadAttachment, withUrls } from './Attachments';
 
 // Files added with a comment: task_attachments rows with a comment_id, listed under their comment
 // rather than in the task's Attachments. See supabase/migrations/20261104_comment_files.sql.
@@ -61,6 +62,13 @@ export function useCommentFiles(task, userId) {
   };
 
   const remove = async (item) => {
+    const ok = await confirmDialog({
+      title: `Remove ${item.name}?`,
+      text: "It will be deleted from the comment. This can't be undone.",
+      confirmText: 'Remove file',
+      danger: true,
+    });
+    if (!ok) return;
     setFiles((list) => list.filter((x) => x.id !== item.id));
     const error = await deleteAttachment(item);
     if (error) {
@@ -94,7 +102,7 @@ export function CommentFileList({ files, uploading = 0, onOpen, canRemove }) {
   return (
     <div className="attachments comment-files">
       {files.map((a) => <FileTile key={a.id} file={a} onOpen={onOpen} onRemove={canRemove?.(a)} />)}
-      {Array.from({ length: uploading }, (_, i) => <div key={`up-${i}`} className="attachment attachment-pending" aria-label="Uploading" />)}
+      {Array.from({ length: uploading }, (_, i) => <UploadingTile key={`up-${i}`} />)}
     </div>
   );
 }

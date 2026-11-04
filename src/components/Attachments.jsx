@@ -253,16 +253,35 @@ export function useFileViewer() {
   return { open, element };
 }
 
+/** A file on its way up: a spinner where its tile will be. */
+export function UploadingTile() {
+  return (
+    <div className="attachment attachment-pending" role="status">
+      <span className="spinner" aria-hidden="true" />
+      <span className="hint">Uploading…</span>
+    </div>
+  );
+}
+
 /** One attachment in a grid: an image thumbnail, or a file card that previews or downloads. */
 export function FileTile({ file: a, onOpen, onRemove }) {
   const previewable = previewKindOf(a.name);
+  // Images from Google Drive can take a moment; show a spinner until the thumbnail arrives.
+  const [loaded, setLoaded] = useState(false);
   return (
     <figure className={`attachment${a.kind === 'image' ? '' : ' is-file'}`}>
       {a.kind === 'image' ? (
         <button className="attachment-thumb" onClick={() => onOpen(a)} aria-label={`View ${a.name}`}>
           {a.thumbUrl ? (
-            <img src={a.thumbUrl} alt={a.name} loading="lazy"
-              onError={(e) => { if (a.url && e.currentTarget.src !== a.url) e.currentTarget.src = a.url; }} />
+            <>
+              {!loaded && <span className="spinner" role="status" aria-label="Loading image" />}
+              <img src={a.thumbUrl} alt={a.name} loading="lazy" className={loaded ? '' : 'is-loading'}
+                onLoad={() => setLoaded(true)}
+                onError={(e) => {
+                  if (a.url && e.currentTarget.src !== a.url) e.currentTarget.src = a.url;
+                  else setLoaded(true);
+                }} />
+            </>
           ) : <span className="muted small">Unavailable</span>}
         </button>
       ) : (
@@ -387,7 +406,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
           <FileTile key={a.id} file={a} onOpen={viewer.open}
             onRemove={(canEdit && a.created_by === userId) || canManageAll ? remove : undefined} />
         ))}
-        {Array.from({ length: uploading }, (_, i) => <div key={`up-${i}`} className="attachment attachment-pending" aria-label="Uploading" />)}
+        {Array.from({ length: uploading }, (_, i) => <UploadingTile key={`up-${i}`} />)}
         {canEdit && (
           <button className="attachment-add" onClick={() => inputRef.current?.click()}>
             <Icon.paperclip />

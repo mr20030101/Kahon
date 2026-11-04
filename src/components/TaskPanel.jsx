@@ -275,6 +275,14 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   };
 
   const deleteComment = async (c) => {
+    const files = commentFiles.of(c.id).length;
+    const ok = await confirmDialog({
+      title: 'Delete this comment?',
+      text: `${files ? `Its ${files === 1 ? 'file' : `${files} files`} will be deleted too. ` : ''}This can't be undone.`,
+      confirmText: 'Delete comment',
+      danger: true,
+    });
+    if (!ok) return;
     setComments((list) => list.filter((x) => x.id !== c.id));
     const { error } = await supabase.from('comments').delete().eq('id', c.id);
     if (error) return toast(error.message, 'error');

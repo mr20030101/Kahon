@@ -22,6 +22,7 @@ before versioning was set up shipped as 0.1.0.
 ### Changed
 
 - Pasting or dropping a file into the comment box adds it to that comment instead of the task's Attachments. Pasting anywhere else in the task panel still attaches to the task.
+- Deleting a comment, or removing a file from one, now asks you to confirm first.
 
 ## 1.7.0 — 2026-10-30
 
