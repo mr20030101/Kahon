@@ -4,7 +4,7 @@ import { PROFILE_BRIEF } from '../lib/profiles';
 
 const SELECT = `id, kind, read_at, created_at, project_id, task_id,
   actor:profiles!notifications_actor_id_fkey(${PROFILE_BRIEF}),
-  task:tasks(id, title, project_id), project:projects(id, name, color), comment:comments(body)`;
+  task:tasks(id, title, project_id), project:projects(id, name, color), comment:comments(id, body)`;
 
 // The signed-in person's notifications, kept live.
 export function useInbox(userId, { limit = 100 } = {}) {

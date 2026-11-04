@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeMentions, encodeMentions, parseBlocks, parseInline, plainMentions } from '../richtext';
+import { decodeMentions, embedOf, encodeMentions, parseBlocks, parseInline, plainMentions } from '../richtext';
 
 const ID = '33e1a922-25da-49a3-8967-d929ab29bfa9';
 
@@ -22,6 +22,42 @@ describe('parseBlocks', () => {
     expect(blocks.map((b) => b.type)).toEqual(['p', 'break', 'ul', 'ol']);
     expect(blocks[0].lines).toHaveLength(2);
     expect(blocks[2].items).toHaveLength(2);
+  });
+});
+
+describe('formatting', () => {
+  it('finds underline, strikethrough, highlight and named links', () => {
+    const nodes = parseInline('++u++ ~~s~~ ==h== [the spec](https://kahon.app/spec?a=1)');
+    expect(nodes.filter((n) => n.type !== 'text')).toEqual([
+      { type: 'underline', text: 'u' }, { type: 'strike', text: 's' }, { type: 'highlight', text: 'h' },
+      { type: 'link', text: 'the spec', href: 'https://kahon.app/spec?a=1' },
+    ]);
+  });
+
+  it('only names links to web addresses', () => {
+    expect(parseInline('[x](javascript:alert(1))').some((n) => n.type === 'link')).toBe(false);
+  });
+
+  it('reads headings, quotes, dividers, code blocks and tables', () => {
+    const blocks = parseBlocks([
+      '# Big', '### Small', '> quoted', '> more', '---', '```', '**not bold**', '```',
+      '| A | B |', '| --- | --- |', '| 1 | **2** |',
+    ].join('\n'));
+    expect(blocks.map((b) => b.type)).toEqual(['h', 'h', 'quote', 'hr', 'codeblock', 'table']);
+    expect(blocks[1].level).toBe(3);
+    expect(blocks[2].lines).toHaveLength(2);
+    expect(blocks[4].text).toBe('**not bold**');
+    expect(blocks[5].head.map((c) => c[0].text)).toEqual(['A', 'B']);
+    expect(blocks[5].rows[0][1]).toEqual([{ type: 'bold', text: '2' }]);
+  });
+
+  it('embeds YouTube, Vimeo and Loom links alone on a line, from the video id only', () => {
+    expect(embedOf('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=3')?.src).toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
+    expect(embedOf('https://youtu.be/dQw4w9WgXcQ')?.provider).toBe('YouTube');
+    expect(embedOf('https://vimeo.com/123456789')?.src).toBe('https://player.vimeo.com/video/123456789');
+    expect(embedOf(`https://www.loom.com/share/${'a'.repeat(32)}`)?.provider).toBe('Loom');
+    expect(embedOf('https://evil.example/watch?v=dQw4w9WgXcQ')).toBeNull();
+    expect(parseBlocks('see https://youtu.be/dQw4w9WgXcQ')[0].type).toBe('p');
   });
 });
 

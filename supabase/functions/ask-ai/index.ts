@@ -172,7 +172,7 @@ async function loadTask(admin: SupabaseClient, id: string, userId: string, scale
   const [parent, subtasks, comments, files, project] = await Promise.all([
     task.parent_id ? admin.from('tasks').select('title').eq('id', task.parent_id).single() : Promise.resolve({ data: null }),
     admin.from('tasks').select('title, completed').eq('parent_id', id).order('position'),
-    admin.from('comments').select('body, created_at, author:profiles(full_name)').eq('task_id', id).order('created_at'),
+    admin.from('comments').select('body, created_at, author:profiles!comments_author_id_fkey(full_name)').eq('task_id', id).order('created_at'),
     admin.from('task_attachments').select('name, path, size_bytes, drive_file_id').eq('task_id', id).order('created_at'),
     loadProject(admin, task.project_id, scale),
   ]);

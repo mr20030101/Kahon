@@ -18,6 +18,10 @@ before versioning was set up shipped as 0.1.0.
 
 - Comments can include images and files. Paste a screenshot into the comment box, drop files on it, or pick them with the paperclip. They're shown under the comment rather than in the task's Attachments, and a comment can be just an image. Commenters can add files to their own comments; deleting a comment deletes its files.
 - This needs `supabase/migrations/20261104_comment_files.sql` (and a redeploy of the `delete-account` Edge Function).
+- Comment formatting: a toolbar (bold, italic, underline, strikethrough, link, highlight, code, quote, lists) and a **+** menu (headings, mention, emoji, embed link, table, divider, quote, code block, image, attach files). Shortcuts: Ctrl/⌘ + B, I, U, K, E. Descriptions show the same formatting.
+- A YouTube, Vimeo or Loom link on its own line shows the video.
+- Hover a comment to react (👍 👀 🙌 or any emoji), reply, or open **⋯**: pin it to the top (editors and admins), copy a link to it, get notified about its replies, edit or delete. Replies are one level deep; the comment's author, its followers and everyone who replied are notified. Notifications in the Inbox now open the comment.
+- This needs `supabase/migrations/20261104_comment_threads.sql`, a redeploy of the `notify` Edge Function, and a Vercel deploy (the video players need the updated `vercel.json`).
 
 ### Changed
 

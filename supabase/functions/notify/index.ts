@@ -143,17 +143,18 @@ const HANDLERS = {
   },
 
   // { comment_id }: email people @mentioned in it (if they're in the project), then the
-  // task's assignees and creator, except the commenter.
+  // task's assignees and creator, except the commenter. For a reply, also the comment it answers'
+  // author, the people following that comment and the others who replied, if still in the project.
   async comment_added(admin: Admin, actorId: string, { comment_id }: { comment_id?: string }) {
     if (!comment_id) return 0;
-    const { data: comment } = await admin.from('comments').select('id, body, author_id, task_id').eq('id', comment_id).single();
+    const { data: comment } = await admin.from('comments').select('id, body, author_id, task_id, parent_id').eq('id', comment_id).single();
     if (!comment || comment.author_id !== actorId) return 0;
     const task = await getTask(admin, comment.task_id);
     if (!task) return 0;
 
     const text = plainMentions(comment.body);
     const quote = text.length > 600 ? `${text.slice(0, 600)}…` : text;
-    const url = `${APP_URL}/p/${task.project_id}?task=${task.id}`;
+    const url = `${APP_URL}/p/${task.project_id}?task=${task.id}&comment=${comment.id}`;
 
     const tagged = [...new Set([...comment.body.matchAll(MENTION)].map((m) => m[1]))];
     const { data: members } = tagged.length
@@ -162,7 +163,21 @@ const HANDLERS = {
     const mentioned = (members ?? []).map((m) => m.user_id);
 
     const { data: extra } = await admin.from('task_assignees').select('user_id').eq('task_id', task.id);
-    const followers = [task.assignee_id, task.created_by, ...(extra ?? []).map((a) => a.user_id)]
+    const thread: string[] = [];
+    if (comment.parent_id) {
+      const [{ data: parent }, { data: following }, { data: replies }] = await Promise.all([
+        admin.from('comments').select('author_id').eq('id', comment.parent_id).single(),
+        admin.from('comment_followers').select('user_id').eq('comment_id', comment.parent_id),
+        admin.from('comments').select('author_id').eq('parent_id', comment.parent_id),
+      ]);
+      const ids = [parent?.author_id, ...(following ?? []).map((f) => f.user_id), ...(replies ?? []).map((r) => r.author_id)]
+        .filter(Boolean) as string[];
+      const { data: inProject } = ids.length
+        ? await admin.from('project_members').select('user_id').eq('project_id', task.project_id).in('user_id', ids)
+        : { data: [] };
+      thread.push(...(inProject ?? []).map((m) => m.user_id));
+    }
+    const followers = [...new Set([task.assignee_id, task.created_by, ...(extra ?? []).map((a) => a.user_id), ...thread])]
       .filter((id) => id && !mentioned.includes(id));
 
     let sent = await send(admin, {

@@ -51,7 +51,7 @@ export default function Inbox() {
 
   const open = (n) => {
     markRead([n.id]);
-    if (n.task) navigate(`/p/${n.task.project_id}?task=${n.task.id}`);
+    if (n.task) navigate(`/p/${n.task.project_id}?task=${n.task.id}${n.comment?.id ? `&comment=${n.comment.id}` : ''}`);
     else if (n.project) navigate(`/p/${n.project.id}`);
   };
 
