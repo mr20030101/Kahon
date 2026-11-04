@@ -1347,20 +1347,62 @@ kbd { padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; backg
 .timer-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); animation: pulse 1s ease-in-out infinite alternate; flex: none; }
 @media (prefers-reduced-motion: reduce) { .timer-dot { animation: none; } }
 .floating-timer {
-  position: fixed; z-index: 60; display: flex; align-items: center; gap: 6px; max-width: min(340px, calc(100vw - 24px));
-  height: 46px; padding: 0 6px 0 4px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line));
-  border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-lift); font-size: 14px;
+  position: fixed; z-index: 60; display: flex; align-items: center; gap: 10px;
+  max-width: min(380px, calc(100vw - 24px)); padding: 8px 8px 8px 8px; border-radius: 18px;
+  background: var(--spruce); color: #fff; border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 36px rgba(8, 24, 14, 0.35), 0 2px 6px rgba(8, 24, 14, 0.2);
+  cursor: grab; touch-action: none; user-select: none;
+  animation: floating-in 0.22s cubic-bezier(.3, 1.3, .5, 1);
 }
-.floating-grip { display: grid; place-items: center; width: 30px; height: 36px; border-radius: 999px; cursor: grab; touch-action: none; }
-.floating-grip:active { cursor: grabbing; }
-.floating-grip:hover, .floating-grip:focus-visible { background: var(--surface-2); }
-.floating-task { min-width: 0; color: var(--ink); font-weight: 600; text-decoration: none; display: flex; }
-.floating-task:hover { color: var(--primary); }
-.floating-clock { color: var(--danger); font-weight: 700; font-variant-numeric: tabular-nums; padding: 0 2px; }
-.floating-timer .icon-btn { width: 30px; height: 30px; }
-.floating-stop { color: var(--danger); }
-.floating-stop:hover { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
-.floating-size svg { transform: rotate(180deg); transition: transform 0.15s; color: var(--ink-3); }
-.floating-timer.is-small .floating-size svg { transform: none; }
-.floating-timer.is-small { padding-left: 2px; }
+.floating-timer:active { cursor: grabbing; }
+.floating-timer a, .floating-timer button { cursor: pointer; }
+@keyframes floating-in { from { opacity: 0; transform: translateY(10px) scale(0.96); } }
+
+/* The stopwatch badge, with a live light pulsing on its corner. */
+.floating-icon {
+  position: relative; display: grid; place-items: center; width: 38px; height: 38px; flex: none; border-radius: 12px;
+  background: var(--mango); color: var(--spruce);
+}
+.floating-icon:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.floating-pulse { position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: #FF6B5A; border: 2px solid var(--spruce); }
+.floating-pulse::after { content: ''; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid #FF6B5A; opacity: 0; animation: floating-ring 1.6s ease-out infinite; }
+@keyframes floating-ring { 0% { transform: scale(0.4); opacity: 0.85; } 100% { transform: scale(1.3); opacity: 0; } }
+
+.floating-what { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.floating-project { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.62); }
+.floating-swatch { width: 8px; height: 8px; border-radius: 3px; flex: none; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.floating-task { display: flex; min-width: 0; color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; }
+.floating-task:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.floating-clock {
+  padding: 5px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.08);
+  font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.1; letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums; color: #fff;
+}
+.floating-stop {
+  display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 50%;
+  background: #E5484D; color: #fff; box-shadow: 0 2px 8px rgba(229, 72, 77, 0.45); transition: transform 0.12s, background 0.12s;
+}
+.floating-stop:hover { background: #F05A5F; transform: scale(1.06); }
+.floating-stop:active { transform: scale(0.96); }
+.floating-stop:focus-visible, .floating-size:focus-visible, .floating-task:focus-visible { outline: 2px solid var(--mango); outline-offset: 2px; opacity: 1; }
+/* Shrink/expand: a small round button on the top-left corner, away from Stop. */
+.floating-size {
+  position: absolute; top: -9px; left: -9px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); box-shadow: var(--shadow);
+  opacity: 0; transform: scale(0.8); transition: opacity 0.12s, transform 0.12s;
+}
+.floating-timer:hover .floating-size, .floating-timer:focus-within .floating-size { opacity: 1; transform: none; }
+.floating-size:hover { color: var(--ink); }
+.floating-minus { width: 10px; height: 2px; border-radius: 1px; background: currentColor; }
+@media (hover: none) { .floating-size { opacity: 1; transform: none; } }
+
+.floating-timer.is-small { gap: 6px; padding: 5px; border-radius: 999px; }
+.floating-timer.is-small .floating-icon { width: 30px; height: 30px; border-radius: 50%; }
+.floating-timer.is-small .floating-icon svg { width: 16px; height: 16px; }
+.floating-timer.is-small .floating-clock { font-size: 16px; padding: 2px 4px; background: none; }
+.floating-timer.is-small .floating-stop { width: 30px; height: 30px; }
+
+@media (prefers-reduced-motion: reduce) { .floating-timer, .floating-pulse::after { animation: none; } }
+@media (max-width: 520px) { .floating-clock { font-size: 17px; } }
 @media print { .floating-timer { display: none; } }
