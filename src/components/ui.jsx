@@ -46,6 +46,18 @@ export const Icon = {
   paperclip: svg(<path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />),
   image: svg(<><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="1.8" /><path d="M21 16l-5-5-9 9" /></>),
   comment: svg(<path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-5 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />),
+  reply: svg(<path d="M10 8L5 12.5 10 17M5.5 12.5H14a5 5 0 0 1 5 5V19" />),
+  pin: svg(<path d="M9 4h6M10 4v5.5L7 13h10l-3-3.5V4M12 13v7" />),
+  smile: svg(<><circle cx="12" cy="12" r="8.5" /><path d="M8.5 14.2c.9 1.3 2.1 1.9 3.5 1.9s2.6-.6 3.5-1.9M9 9.8h.01M15 9.8h.01" /></>),
+  smilePlus: svg(<><path d="M20.4 11a8.5 8.5 0 1 1-7.4-7.4" /><path d="M8.5 14.2c.9 1.3 2.1 1.9 3.5 1.9s2.6-.6 3.5-1.9M9 9.8h.01M15 9.8h.01M18.5 2.5v5M16 5h5" /></>),
+  at: svg(<><circle cx="12" cy="12" r="3.6" /><path d="M15.6 8.5v4.8a2.4 2.4 0 0 0 4.8 0V12a8.4 8.4 0 1 0-3.3 6.7" /></>),
+  quote: svg(<path d="M5 5v14M9.5 7H20M9.5 12H20M9.5 17h7" />),
+  code: svg(<path d="M8.5 7L3.5 12l5 5M15.5 7l5 5-5 5" />),
+  highlight: svg(<path d="M14.5 4.5l5 5L11 18l-5 1 1-5zM12.5 6.5l5 5M4 21h7" />),
+  table: svg(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M9.5 9.5v10" /></>),
+  divider: svg(<path d="M4 12h16M7 7h10M7 17h10" strokeOpacity="1" />),
+  codeBlock: svg(<><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M10 10l-2.2 2.2L10 14.4M14 10l2.2 2.2-2.2 2.2" /></>),
+  numbered: svg(<path d="M10 6h10M10 12h10M10 18h10M4 5l1.5-1v5M4 14.2c0-.8.6-1.2 1.3-1.2s1.2.5 1.2 1.1c0 1.2-2.5 1.9-2.5 3.4h2.6" />),
 };
 
 // Brand mark: an isometric box with a lit top. Below 44px the shaded face is dropped.

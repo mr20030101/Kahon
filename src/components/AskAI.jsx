@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Icon } from './ui';
+import RichText from './RichText';
+import { commandRisks } from '../lib/commandRisk';
 
 // "Ask AI" in the task panel. The ask-ai Edge Function loads the task itself, asks a model on
 // Groq and streams the answer back as plain text, which is shown as it arrives.
@@ -107,7 +109,16 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
       {answer && (
         <div className="ask-answer" aria-live="polite">
           {answer.text
-            ? <p className="ask-text">{answer.text.split(ERROR_MARK)[0]}{busy && <span className="caret" />}</p>
+            ? (
+              // The model answers in Markdown: show it formatted, as comments are.
+              <>
+                <CommandWarning text={answer.text.split(ERROR_MARK)[0]} />
+                <div className="ask-text">
+                  <RichText text={answer.text.split(ERROR_MARK)[0]} />
+                  {busy && <span className="caret" />}
+                </div>
+              </>
+            )
             : busy && <p className="muted small">Reading the task…</p>}
           {answer.error && (
             <>
@@ -137,7 +148,33 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
           )}
         </div>
       )}
-      <p className="hint">The AI reads this task's details, subtasks, comments and attachments (not images), plus the project's description and reference files from About. Answers can be wrong; check before acting on them.</p>
+      <p className="hint">
+        The AI reads this task's details, subtasks, comments and attachments (not images), plus the project's description and reference files from About.
+        Passwords, keys and server details are hidden from it, and questions are kept for Kahon's admins. It can't run anything, and answers can be wrong; check before acting on them.
+      </p>
     </section>
+  );
+}
+
+// Above an answer with commands: a reminder to check them, and the ones that delete, overwrite
+// or reset things, with what each does.
+function CommandWarning({ text }) {
+  const { commands, risky } = commandRisks(text);
+  if (!commands.length) return null;
+  if (!risky.length) {
+    return (
+      <p className="ask-warning" role="note">
+        <Icon.info width="16" height="16" /> This answer includes commands. Read them before running them; Ask AI can't run anything for you.
+      </p>
+    );
+  }
+  return (
+    <div className="ask-warning is-danger" role="alert">
+      <strong><Icon.info width="16" height="16" /> Careful: {risky.length === 1 ? 'this command' : 'these commands'} can delete or overwrite things</strong>
+      <ul>
+        {risky.map((r) => <li key={r.command}><code>{r.command}</code>: {r.why.join('; ')}</li>)}
+      </ul>
+      <span>Back up first, try it outside production, and make sure you're on the right server.</span>
+    </div>
   );
 }

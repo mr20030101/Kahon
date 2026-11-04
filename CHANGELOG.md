@@ -18,9 +18,18 @@ before versioning was set up shipped as 0.1.0.
 
 - Comments can include images and files. Paste a screenshot into the comment box, drop files on it, or pick them with the paperclip. They're shown under the comment rather than in the task's Attachments, and a comment can be just an image. Commenters can add files to their own comments; deleting a comment deletes its files.
 - This needs `supabase/migrations/20261104_comment_files.sql` (and a redeploy of the `delete-account` Edge Function).
+- Comment formatting: a toolbar (bold, italic, underline, strikethrough, link, highlight, code, quote, lists) and a **+** menu (headings, mention, emoji, embed link, table, divider, quote, code block, image, attach files). Shortcuts: Ctrl/⌘ + B, I, U, K, E. Descriptions show the same formatting.
+- A YouTube, Vimeo or Loom link on its own line shows the video.
+- Hover a comment to react (👍 👀 🙌 or any emoji), reply, or open **⋯**: pin it to the top (editors and admins), copy a link to it, get notified about its replies, edit or delete. Replies are one level deep; the comment's author, its followers and everyone who replied are notified. Notifications in the Inbox now open the comment.
+- This needs `supabase/migrations/20261104_comment_threads.sql`, a redeploy of the `notify` Edge Function, and a Vercel deploy (the video players need the updated `vercel.json`).
+
+- Ask AI hides passwords, API keys, tokens, private keys, connection strings, database and server settings and IP addresses: they're removed from what the AI reads and masked in its answers, and the answer says how many were hidden. It's also told it can't run anything and to call out destructive commands.
+- Ask AI answers with commands show a reminder to check them; commands that delete, overwrite, reset or force things (like `--prune`, `--force`, `migrate:fresh`, `DROP`, `rm -rf`) are listed in red with what they do.
+- Super admins see each Ask AI question (with secrets hidden), who asked it and on which task, under **Ask AI usage → Recent questions**. This needs `supabase/migrations/20261104_ask_ai_security.sql` and a redeploy of the `ask-ai` Edge Function.
 
 ### Changed
 
+- Ask AI answers are shown formatted (bold, code, lists and code blocks), like comments.
 - Pasting or dropping a file into the comment box adds it to that comment instead of the task's Attachments. Pasting anywhere else in the task panel still attaches to the task.
 - Deleting a comment, or removing a file from one, now asks you to confirm first.
 

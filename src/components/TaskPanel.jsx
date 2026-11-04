@@ -5,10 +5,9 @@ import { byPosition } from '../lib/position';
 import { formatCreated, timeAgo } from '../lib/dates';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import Attachments, { ACCEPT, checkFiles, removeAttachmentFiles, useFileViewer } from './Attachments';
-import { CommentFileList, PendingFiles, useCommentFiles, useFileTarget, usePendingFiles } from './CommentFiles';
+import Attachments, { removeAttachmentFiles } from './Attachments';
 import AskAI from './AskAI';
-import MentionInput from './MentionInput';
+import Comments from './Comments';
 import RichText from './RichText';
 import { ActivityLog, ExtraAssignees, LabelPicker, MoveTaskModal, RepeatSelect } from './TaskExtras';
 import { AssigneeSelect, Avatar, Check, DueInput, Icon, InlineAdd, PrioritySelect } from './ui';
@@ -16,8 +15,6 @@ import { confirmDialog, isDialogOpen } from '../lib/dialog';
 import { notify, notifyTaskUpdate } from '../lib/notify';
 import { canComment, canEdit } from '../lib/roles';
 import { PROFILE_BRIEF } from '../lib/profiles';
-
-const COMMENT_SELECT = `id, body, created_at, edited_at, author_id, author:profiles(${PROFILE_BRIEF})`;
 
 export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const { user } = useAuth();
@@ -28,20 +25,15 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const [members, setMembers] = useState([]);
   const [sections, setSections] = useState([]);
   const [subtasks, setSubtasks] = useState([]);
-  const [comments, setComments] = useState([]);
   const [titleDraft, setTitleDraft] = useState('');
   const [descDraft, setDescDraft] = useState('');
-  const [commentText, setCommentText] = useState('');
-  const [editingComment, setEditingComment] = useState(null);
   const [editingDesc, setEditingDesc] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [moving, setMoving] = useState(false);
   const [fileDrag, setFileDrag] = useState(false);
   const attachmentsRef = useRef(null);
-  const commentRef = useRef(null);
-  const editRef = useRef(null);
-  const commentFileInput = useRef(null);
+  const commentsRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -55,12 +47,11 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
         setStatus('missing');
         return;
       }
-      const [p, m, s, sub, c] = await Promise.all([
+      const [p, m, s, sub] = await Promise.all([
         supabase.from('projects').select('id, name, color').eq('id', t.project_id).single(),
         supabase.from('project_members').select(`role, user_id, profile:profiles(${PROFILE_BRIEF})`).eq('project_id', t.project_id),
         supabase.from('sections').select('id, name, position').eq('project_id', t.project_id).order('position'),
         supabase.from('tasks').select('*').eq('parent_id', taskId).order('position'),
-        supabase.from('comments').select(COMMENT_SELECT).eq('task_id', taskId).order('created_at'),
       ]);
       if (!alive) return;
       setTask(t);
@@ -70,7 +61,6 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
       setMembers(m.data || []);
       setSections(s.data || []);
       setSubtasks(sub.data || []);
-      setComments(c.data || []);
       setStatus('ready');
     })();
 
@@ -93,15 +83,6 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
         }
         setSubtasks((list) => list.filter((x) => x.id !== old.id));
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `task_id=eq.${taskId}` },
-        async ({ new: row }) => {
-          const { data } = await supabase.from('comments').select(COMMENT_SELECT).eq('id', row.id).maybeSingle();
-          if (data) setComments((list) => (list.some((x) => x.id === data.id) ? list : [...list, data]));
-        })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'comments', filter: `task_id=eq.${taskId}` },
-        ({ new: row }) => setComments((list) => list.map((x) => (x.id === row.id ? { ...x, body: row.body, edited_at: row.edited_at } : x))))
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments' },
-        ({ old }) => setComments((list) => list.filter((x) => x.id !== old.id)))
       .subscribe();
 
     return () => {
@@ -237,58 +218,6 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
     onClose();
   };
 
-  // From the comment box (no argument) or with given text (Ask AI's "Post as comment").
-  const postComment = async (text) => {
-    const fromBox = text === undefined;
-    const body = (fromBox ? commentRef.current?.getValue() ?? '' : text).trim().slice(0, 5000);
-    // Files waiting in the comment box go up with it, so a comment can be just a screenshot.
-    const files = fromBox ? pendingFiles.take() : [];
-    if (!body && !files.length) return;
-    if (fromBox) {
-      commentRef.current?.clear();
-      setCommentText('');
-    }
-    const { data, error } = await supabase
-      .from('comments')
-      .insert({ task_id: taskId, author_id: user.id, body })
-      .select(COMMENT_SELECT)
-      .single();
-    if (error) {
-      pendingFiles.putBack(files);
-      return toast(error.message, 'error');
-    }
-    setComments((list) => (list.some((x) => x.id === data.id) ? list : [...list, data]));
-    notify('comment_added', { comment_id: data.id });
-    await commentFiles.upload(data.id, files);
-    pendingFiles.done(files);
-  };
-
-  const saveCommentEdit = async (c) => {
-    const body = (editRef.current?.getValue() ?? '').trim().slice(0, 5000);
-    if (!body && !commentFiles.of(c.id).length) return;
-    setEditingComment(null);
-    if (body === c.body) return;
-    const edited_at = new Date().toISOString();
-    setComments((list) => list.map((x) => (x.id === c.id ? { ...x, body, edited_at } : x)));
-    const { error } = await supabase.from('comments').update({ body, edited_at }).eq('id', c.id);
-    if (error) toast(error.message, 'error');
-  };
-
-  const deleteComment = async (c) => {
-    const files = commentFiles.of(c.id).length;
-    const ok = await confirmDialog({
-      title: 'Delete this comment?',
-      text: `${files ? `Its ${files === 1 ? 'file' : `${files} files`} will be deleted too. ` : ''}This can't be undone.`,
-      confirmText: 'Delete comment',
-      danger: true,
-    });
-    if (!ok) return;
-    setComments((list) => list.filter((x) => x.id !== c.id));
-    const { error } = await supabase.from('comments').delete().eq('id', c.id);
-    if (error) return toast(error.message, 'error');
-    await commentFiles.clearDeleted(c.id);
-  };
-
   const creator = members.find((m) => m.user_id === task?.created_by)?.profile;
   const myRole = members.find((m) => m.user_id === user.id)?.role;
   const isOwner = myRole === 'owner';
@@ -296,15 +225,6 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const editable = canEdit(myRole);
   const commentable = canComment(myRole);
 
-  // Files pasted, dropped or picked in the comment box belong to the comment, not the task.
-  const commentFiles = useCommentFiles(task ?? { id: taskId }, user.id);
-  const pendingFiles = usePendingFiles();
-  const fileViewer = useFileViewer();
-  const [composerFileProps, composerDrag] = useFileTarget(pendingFiles.add, commentable);
-  const [editFileProps, editDrag] = useFileTarget(
-    (files) => editingComment && commentFiles.upload(editingComment, checkFiles(files, toast)), commentable,
-  );
-  const canRemoveCommentFile = (f) => (isOwner || (commentable && f.created_by === user.id) ? commentFiles.remove : undefined);
 
   // Drop files anywhere on the panel to attach them.
   const isFileDrag = (e) => status === 'ready' && editable && [...e.dataTransfer.types].includes('Files');
@@ -475,7 +395,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                 for (const title of titles) await addSubtask(title);
                 toast(`Added ${titles.length} subtask${titles.length === 1 ? '' : 's'}`);
               }}
-              onPostComment={commentable ? (text) => postComment(text) : undefined}
+              onPostComment={commentable ? (text) => commentsRef.current?.post(text) : undefined}
             />
 
             {!task.parent_id && (
@@ -499,61 +419,8 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
               </>
             )}
 
-            <h4 className="panel-h">Comments</h4>
-            <ul className="comments">
-              {comments.map((c) => (
-                <li key={c.id}>
-                  <Avatar profile={c.author} size={28} />
-                  <div className="comment-body">
-                    <div className="comment-head">
-                      <strong>{c.author?.full_name || 'Someone'}</strong>
-                      <span className="muted small">{timeAgo(c.created_at)}{c.edited_at ? ' · edited' : ''}</span>
-                      {c.author_id === user.id && commentable && editingComment !== c.id && (
-                        <span className="comment-tools">
-                          <button className="link-btn" onClick={() => setEditingComment(c.id)}>Edit</button>
-                          <button className="link-btn" onClick={() => deleteComment(c)}>Delete</button>
-                        </span>
-                      )}
-                    </div>
-                    {editingComment === c.id ? (
-                      <div className={`comment-box is-editing${editDrag ? ' is-drop' : ''}`} {...editFileProps}>
-                        <MentionInput ref={editRef} members={members} initial={c.body} rows={3} autoFocus
-                          onSubmit={() => saveCommentEdit(c)} aria-label="Edit comment" />
-                        <div className="comment-actions">
-                          <span className="hint">Paste or drop files to add them · Ctrl + Enter to save</span>
-                          <button className="link-btn" onClick={() => setEditingComment(null)}>Cancel</button>
-                          <button className="btn btn-primary btn-small" onClick={() => saveCommentEdit(c)}>Save</button>
-                        </div>
-                      </div>
-                    ) : (
-                      c.body && <RichText text={c.body} className="comment-text" />
-                    )}
-                    <CommentFileList files={commentFiles.of(c.id)} uploading={commentFiles.uploadingFor(c.id)}
-                      onOpen={fileViewer.open} canRemove={canRemoveCommentFile} />
-                  </div>
-                </li>
-              ))}
-              {comments.length === 0 && <li className="muted small">{commentable ? 'No comments yet. Ask a question or leave an update.' : 'No comments yet.'}</li>}
-            </ul>
-            {!commentable && <p className="muted small">You're a viewer in this project, so you can read comments but not add them.</p>}
-            {commentable && <div className={`comment-box${composerDrag ? ' is-drop' : ''}`} {...composerFileProps}>
-              <MentionInput ref={commentRef} members={members} placeholder="Write a comment. Type @ to mention someone." rows={2}
-                onTextChange={setCommentText} onSubmit={() => postComment()} aria-label="Comment" />
-              <PendingFiles items={pendingFiles.items} onDrop={pendingFiles.drop} />
-              <div className="comment-actions">
-                <button type="button" className="icon-btn" onClick={() => commentFileInput.current?.click()}
-                  aria-label="Add files to the comment" title="Add images or files"><Icon.paperclip /></button>
-                <span className="hint">Paste or drop images · Ctrl + Enter to post</span>
-                <button className="btn btn-primary" onClick={() => postComment()}
-                  disabled={!commentText.trim() && !pendingFiles.items.length}>Comment</button>
-              </div>
-              <input ref={commentFileInput} type="file" accept={ACCEPT} multiple hidden
-                onChange={(e) => {
-                  pendingFiles.add([...e.target.files]);
-                  e.target.value = '';
-                }} />
-            </div>}
-            {fileViewer.element}
+            <Comments ref={commentsRef} task={task} members={members} userId={user.id}
+              commentable={commentable} editable={editable} isOwner={isOwner} />
 
             <button type="button" className="link-btn activity-toggle" onClick={() => setShowActivity((v) => !v)} aria-expanded={showActivity}>
               <Icon.history width="16" height="16" /> {showActivity ? 'Hide activity' : 'Show activity'}
