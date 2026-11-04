@@ -59,6 +59,19 @@ describe('formatting', () => {
     expect(embedOf('https://evil.example/watch?v=dQw4w9WgXcQ')).toBeNull();
     expect(parseBlocks('see https://youtu.be/dQw4w9WgXcQ')[0].type).toBe('p');
   });
+
+  it('embeds ok.ru, Dailymotion, Google Drive and Figma, and pasted iframe code', () => {
+    expect(embedOf('https://ok.ru/video/4492604541637')?.src).toBe('https://ok.ru/videoembed/4492604541637');
+    const pasted = embedOf('<iframe width="560" height="315" src="//ok.ru/videoembed/4492604541637?nochat=1" frameborder="0" allow="autoplay" allowfullscreen></iframe>');
+    expect(pasted).toMatchObject({ provider: 'OK.ru', src: 'https://ok.ru/videoembed/4492604541637', url: 'https://ok.ru/video/4492604541637' });
+    expect(embedOf('https://www.dailymotion.com/video/x8abcd1')?.src).toBe('https://www.dailymotion.com/embed/video/x8abcd1');
+    expect(embedOf('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUv/view?usp=sharing')?.src)
+      .toBe('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUv/preview');
+    expect(embedOf('https://www.figma.com/design/AbCdEfGhIjKl123/My-File?node-id=1-2&t=x')?.src)
+      .toBe(`https://www.figma.com/embed?embed_host=kahon&url=${encodeURIComponent('https://www.figma.com/design/AbCdEfGhIjKl123?node-id=1-2')}`);
+    // An iframe from anywhere else stays text.
+    expect(embedOf('<iframe src="https://evil.example/x"></iframe>')).toBeNull();
+  });
 });
 
 describe('mentions', () => {

@@ -34,20 +34,44 @@ export function parseInline(text) {
 }
 
 /**
- * A video player for a YouTube, Vimeo or Loom link: { provider, src, url }, else null. The
- * player's address is built from the video id alone, never from the rest of the link.
+ * A player for a video or design link: { provider, src, url }, else null. YouTube, Vimeo, Loom,
+ * ok.ru, Dailymotion, Google Drive files and Figma. Pasted <iframe> embed code works too, for
+ * the same sites. The player's address is built from the item's id, never taken from the link.
  */
-export function embedOf(url) {
-  let m = url.match(/^https?:\/\/(?:www\.|m\.)?youtube\.com\/watch\?(?:\S*&)?v=([\w-]{11})(?:[&#]\S*)?$/)
+export function embedOf(input) {
+  const iframe = input.match(/^<iframe\b[^>]*?\ssrc=["']([^"'\s]+)["'][^>]*>\s*(?:<\/iframe>)?$/i);
+  if (iframe) {
+    const src = iframe[1].startsWith('//') ? `https:${iframe[1]}` : iframe[1];
+    const found = embedOf(src);
+    return found && { ...found, url: found.page };
+  }
+  const url = input;
+  let m = url.match(/^https?:\/\/(?:www\.|m\.)?youtube(?:-nocookie)?\.com\/watch\?(?:\S*&)?v=([\w-]{11})(?:[&#]\S*)?$/)
     || url.match(/^https?:\/\/youtu\.be\/([\w-]{11})(?:[?#]\S*)?$/)
-    || url.match(/^https?:\/\/(?:www\.)?youtube\.com\/(?:shorts|embed|live)\/([\w-]{11})(?:[?#]\S*)?$/);
-  if (m) return { provider: 'YouTube', src: `https://www.youtube-nocookie.com/embed/${m[1]}`, url };
-  m = url.match(/^https?:\/\/(?:www\.)?vimeo\.com\/(\d{6,12})(?:[/?#]\S*)?$/);
-  if (m) return { provider: 'Vimeo', src: `https://player.vimeo.com/video/${m[1]}`, url };
+    || url.match(/^https?:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\/(?:shorts|embed|live)\/([\w-]{11})(?:[?#]\S*)?$/);
+  if (m) return found('YouTube', `https://www.youtube-nocookie.com/embed/${m[1]}`, url, `https://www.youtube.com/watch?v=${m[1]}`);
+  m = url.match(/^https?:\/\/(?:www\.|player\.)?vimeo\.com\/(?:video\/)?(\d{6,12})(?:[/?#]\S*)?$/);
+  if (m) return found('Vimeo', `https://player.vimeo.com/video/${m[1]}`, url, `https://vimeo.com/${m[1]}`);
   m = url.match(/^https?:\/\/(?:www\.)?loom\.com\/(?:share|embed)\/([0-9a-f]{32})(?:[?#]\S*)?$/);
-  if (m) return { provider: 'Loom', src: `https://www.loom.com/embed/${m[1]}`, url };
+  if (m) return found('Loom', `https://www.loom.com/embed/${m[1]}`, url, `https://www.loom.com/share/${m[1]}`);
+  m = url.match(/^https?:\/\/(?:www\.|m\.)?ok\.ru\/(?:video|videoembed|live)\/(\d{5,20})(?:[/?#]\S*)?$/);
+  if (m) return found('OK.ru', `https://ok.ru/videoembed/${m[1]}`, url, `https://ok.ru/video/${m[1]}`);
+  m = url.match(/^https?:\/\/(?:www\.)?dailymotion\.com\/(?:embed\/)?video\/([a-zA-Z0-9]{5,12})(?:[_/?#]\S*)?$/)
+    || url.match(/^https?:\/\/dai\.ly\/([a-zA-Z0-9]{5,12})(?:[?#]\S*)?$/);
+  if (m) return found('Dailymotion', `https://www.dailymotion.com/embed/video/${m[1]}`, url, `https://www.dailymotion.com/video/${m[1]}`);
+  m = url.match(/^https:\/\/drive\.google\.com\/file\/d\/([\w-]{20,80})(?:\/(?:view|preview|edit))?(?:[?#]\S*)?$/);
+  if (m) return found('Google Drive', `https://drive.google.com/file/d/${m[1]}/preview`, url, `https://drive.google.com/file/d/${m[1]}/view`);
+  m = url.match(/^https:\/\/(?:www\.)?figma\.com\/(file|design|proto|board)\/([A-Za-z0-9]{10,64})(?:\/[^\s?#]*)?(?:\?(\S*))?$/);
+  if (m) {
+    const node = (m[3] || '').match(/(?:^|&)node-id=([\w:-]{1,40})(?:&|$)/)?.[1];
+    const page = `https://www.figma.com/${m[1]}/${m[2]}${node ? `?node-id=${node}` : ''}`;
+    return found('Figma', `https://www.figma.com/embed?embed_host=kahon&url=${encodeURIComponent(page)}`, url, page);
+  }
   return null;
 }
+
+// url: the link as written (shown under the player); page: the item's own page, from its id.
+const found = (provider, src, url, page) => ({ provider, src, url, page });
 
 const TABLE_ROW = /^\s*\|.*\|\s*$/;
 const cellsOf = (row) => row.trim().slice(1, -1).split('|').map((c) => c.trim());
@@ -122,8 +146,8 @@ export function parseBlocks(text = '') {
   return blocks.filter((b, i, all) => b.type !== 'break' || (i > 0 && i < all.length - 1 && all[i - 1].type !== 'break'));
 }
 
-/** Mention tokens shown as plain "@Name" (for previews and editing). */
-export const plainMentions = (text = '') => text.replace(/@\[([^\]\n]{1,120})\]\([0-9a-f-]{36}\)/g, '@$1');
+// Mentions as plain "@Name" (for editing), and whole texts without formatting (for previews).
+export { plainMentions, plainText } from '../../supabase/functions/_shared/plaintext.ts';
 
 /** Mentions picked while typing ({name, id}) turned into tokens, first unconverted match each. */
 export function encodeMentions(text, picked) {

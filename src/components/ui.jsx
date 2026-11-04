@@ -112,7 +112,16 @@ export function Avatar({ profile, size = 26, title }) {
 }
 
 // The square checkbox: completing a task "closes the box".
-export function Check({ checked, onChange, label, disabled }) {
+export function Check({ checked, onChange, label, disabled, decorative = false }) {
+  // Inside another button (Mark complete), only the look: a button can't hold a button.
+  if (decorative) {
+    return (
+      <span className={`check${checked ? ' is-done' : ''}${disabled ? ' is-disabled' : ''}`} aria-hidden="true">
+        <span className="check-lid" />
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>
+      </span>
+    );
+  }
   return (
     <button
       type="button"

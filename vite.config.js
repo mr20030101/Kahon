@@ -37,7 +37,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.js'],
+    // Component tests (.test.jsx) pick jsdom with a // @vitest-environment comment.
+    include: ['src/**/*.test.{js,jsx}'],
   },
   server: {
     // The preview iframe is sandboxed without allow-same-origin, so its script

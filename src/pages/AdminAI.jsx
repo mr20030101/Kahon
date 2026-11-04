@@ -57,7 +57,7 @@ export default function AdminAI() {
         </AdminSection>
 
         <AdminSection title="Recent questions" count={recent.length}
-          note="The latest 200 requests. Passwords, keys and server details were hidden before the AI saw them, and aren't kept here.">
+          note="The latest 200 requests. Passwords, keys and server details were hidden before the AI saw them, and aren't kept here. Questions are cleared after 30 days.">
           {recent.length === 0 ? <p className="muted">No requests in the last {days} days.</p> : (
             <div className="admin-table-wrap">
               <table className="admin-table">

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /**
  * A small floating panel next to its button. Closes on a click outside it or Escape (without
@@ -6,6 +6,35 @@ import { useEffect, useRef } from 'react';
  */
 export function Popover({ onClose, className = '', children, label }) {
   const ref = useRef(null);
+  const [flip, setFlip] = useState('');
+  const [maxHeight, setMaxHeight] = useState(null);
+  // Opens up or down (as its class says) unless that runs out of the scrolling area or window,
+  // in which case it opens the other way, whichever side has more room.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const anchor = el?.parentElement;
+    if (!el || !anchor) return;
+    let box = { top: 0, bottom: window.innerHeight };
+    for (let p = anchor.parentElement; p; p = p.parentElement) {
+      if (/(auto|scroll|hidden)/.test(getComputedStyle(p).overflowY)) {
+        const r = p.getBoundingClientRect();
+        box = { top: Math.max(0, r.top), bottom: Math.min(window.innerHeight, r.bottom) };
+        break;
+      }
+    }
+    const a = anchor.getBoundingClientRect();
+    const h = el.getBoundingClientRect().height;
+    const above = a.top - box.top;
+    const below = box.bottom - a.bottom;
+    const opensUp = getComputedStyle(el).bottom !== 'auto';
+    let up = opensUp;
+    if (opensUp && above < h + 8 && below > above) up = false;
+    else if (!opensUp && below < h + 8 && above > below) up = true;
+    if (up !== opensUp) setFlip(up ? 'open-up' : 'open-down');
+    // Still too tall for the side it opens on: it scrolls inside instead of running off.
+    const room = (up ? above : below) - 12;
+    if (h > room) setMaxHeight(Math.max(140, room));
+  }, []);
   useEffect(() => {
     const onDown = (e) => {
       // The button that opened it toggles it itself.
@@ -23,7 +52,12 @@ export function Popover({ onClose, className = '', children, label }) {
       window.removeEventListener('keydown', onKey, true);
     };
   }, [onClose]);
-  return <div ref={ref} className={`popover ${className}`.trim()} role="dialog" aria-label={label}>{children}</div>;
+  return (
+    <div ref={ref} className={`popover ${className} ${flip}`.trim()} role="dialog" aria-label={label}
+      style={maxHeight ? { maxHeight, overflowY: 'auto' } : undefined}>
+      {children}
+    </div>
+  );
 }
 
 // The reactions offered in the comment hover bar, and the emoji picker's set.

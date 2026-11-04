@@ -5,6 +5,7 @@ import { Icon } from './ui';
 import FileViewer, { previewKindOf } from './FileViewer';
 import { FILE_CLEANUP_DAYS, cleanupDate, useFileCleanup } from '../hooks/useFileCleanup';
 import { purgeDriveTrash, signDriveUrls, uploadToDrive } from '../lib/drive';
+import { confirmDialog } from '../lib/dialog';
 import {
   CACHE_FOREVER, MAX_IMAGE_INPUT_BYTES, cleanFileName, hasValidSignature, makeThumbnail, processImage, thumbPathOf,
 } from '../lib/uploads';
@@ -383,6 +384,13 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
   });
 
   const remove = async (item) => {
+    const ok = await confirmDialog({
+      title: `Remove ${item.name}?`,
+      text: "It will be deleted from the task for everyone. This can't be undone.",
+      confirmText: 'Remove file',
+      danger: true,
+    });
+    if (!ok) return;
     setItems((list) => list.filter((x) => x.id !== item.id));
     const error = await deleteAttachment(item);
     if (error) {
