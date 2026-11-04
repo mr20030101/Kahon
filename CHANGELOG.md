@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.9.0 — 2026-11-04
+
 ### Added
 
 - More embeds: OK.ru, Dailymotion, Google Drive files and Figma links on their own line show a player, and pasted `<iframe>` embed code from a supported site does too.
