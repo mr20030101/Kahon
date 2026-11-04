@@ -612,7 +612,7 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .ask-form { display: flex; gap: 8px; }
 .ask-form .input { flex: 1; min-width: 0; height: 36px; }
 .ask-answer { margin-top: 10px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); border-left: 3px solid var(--mango); display: grid; gap: 8px; }
-.ask-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.55; }
+.ask-text { margin: 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.55; }
 .ask-text .caret { height: 1em; }
 .ask-answer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ask-answer > .link-btn { justify-self: start; }
@@ -1310,3 +1310,11 @@ kbd { padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; backg
 .rich th { background: var(--surface-2); font-weight: 600; }
 .rich-embed { display: grid; gap: 4px; max-width: 560px; margin: 0 0 8px; }
 .rich-embed iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; background: #000; }
+
+.admin-question { max-width: 420px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ask-warning { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+.ask-warning svg { flex: none; margin-top: 1px; }
+.ask-warning.is-danger { display: grid; gap: 4px; border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); background: color-mix(in srgb, var(--danger) 9%, var(--surface)); color: var(--ink); }
+.ask-warning.is-danger strong { display: flex; align-items: center; gap: 6px; color: var(--danger); }
+.ask-warning ul { margin: 0; padding-left: 20px; }
+.ask-warning code { font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--surface); overflow-wrap: anywhere; }

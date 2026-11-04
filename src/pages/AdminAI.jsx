@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSuperadmin } from '../hooks/useSuperadmin';
 import { AdminBody, AdminHead, AdminSection, PeriodPicker, dateLabel, number } from '../components/AdminParts';
 import { WorkspaceTile } from '../components/Workspaces';
@@ -6,6 +7,7 @@ import { WorkspaceTile } from '../components/Workspaces';
 // Ask AI requests and tokens, for what Groq costs and who's near the daily limit.
 // The limit is the ask-ai function's AI_DAILY_LIMIT secret; 30 unless it was changed.
 const DAILY_LIMIT = 30;
+const KINDS = { summarize: 'Summarize', next_steps: 'Next steps', subtasks: 'Suggest subtasks' };
 
 export default function AdminAI() {
   const [days, setDays] = useState(30);
@@ -13,6 +15,7 @@ export default function AdminAI() {
   const daily = data?.daily || [];
   const people = data?.people || [];
   const workspaces = data?.workspaces || [];
+  const recent = data?.recent || [];
   const sum = (key) => daily.reduce((n, d) => n + Number(d[key] ?? 0), 0);
 
   return (
@@ -45,6 +48,37 @@ export default function AdminAI() {
                       <td className={p.busiest_day >= DAILY_LIMIT ? 'is-pending' : ''}>{p.busiest_day}{p.busiest_day >= DAILY_LIMIT ? ' · hit the limit' : ''}</td>
                       <td>{number(Number(p.input_tokens) + Number(p.output_tokens))}</td>
                       <td>{dateLabel(p.last_used, true)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </AdminSection>
+
+        <AdminSection title="Recent questions" count={recent.length}
+          note="The latest 200 requests. Passwords, keys and server details were hidden before the AI saw them, and aren't kept here.">
+          {recent.length === 0 ? <p className="muted">No requests in the last {days} days.</p> : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr><th scope="col">When</th><th scope="col">Person</th><th scope="col">Asked</th><th scope="col">Task</th></tr>
+                </thead>
+                <tbody>
+                  {recent.map((r) => (
+                    <tr key={r.id}>
+                      <td>{dateLabel(r.created_at, true)}</td>
+                      <td><div className="admin-person-copy"><strong>{r.name || 'Deleted account'}</strong><span>{r.email}</span></div></td>
+                      <td className="admin-question">
+                        {r.kind === 'question' ? (r.question || <span className="muted">(not recorded)</span>) : <span className="muted">{KINDS[r.kind] || r.kind}</span>}
+                        {r.hidden_count > 0 && <span className="hint"> · {r.hidden_count} hidden</span>}
+                      </td>
+                      <td>
+                        {r.task_id
+                          ? <Link to={`/p/${r.project_id}?task=${r.task_id}`}>{r.task_title}</Link>
+                          : <span className="muted">Deleted task</span>}
+                        {r.project_name && <span className="hint"> · {r.project_name}</span>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
