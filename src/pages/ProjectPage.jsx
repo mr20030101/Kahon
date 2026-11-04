@@ -8,7 +8,8 @@ import BoardView from '../components/BoardView';
 import CalendarView from '../components/CalendarView';
 import FilterBar from '../components/FilterBar';
 import LabelsModal from '../components/LabelsModal';
-import { EMPTY_FILTERS, filterTasks, groupBy } from '../lib/filters';
+import FieldsModal from '../components/FieldsModal';
+import { EMPTY_FILTERS, filterTasks, groupBy, valuesByTask } from '../lib/filters';
 import ListView from '../components/ListView';
 import MembersModal from '../components/MembersModal';
 import ProjectDetails, { StatusPill } from '../components/ProjectDetails';
@@ -31,6 +32,7 @@ export default function ProjectPage() {
   const [hideCompleted, setHideCompleted] = useHiddenCompleted(projectId);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [showLabels, setShowLabels] = useState(false);
+  const [showFields, setShowFields] = useState(false);
 
   useEffect(() => setFilters(EMPTY_FILTERS), [projectId]);
 
@@ -46,9 +48,12 @@ export default function ProjectPage() {
   // Labels and extra assignees by task, for showing on cards and for filtering.
   const labelsByTask = useMemo(() => groupBy(data.taskLabels, 'task_id', 'label_id'), [data.taskLabels]);
   const extrasByTask = useMemo(() => groupBy(data.extraAssignees, 'task_id', 'user_id'), [data.extraAssignees]);
+  const fieldValuesByTask = useMemo(() => valuesByTask(data.fieldValues), [data.fieldValues]);
   const shownTasks = useMemo(
-    () => filterTasks(data.tasks, filters, { me: user.id, extraAssignees: extrasByTask, taskLabels: labelsByTask }),
-    [data.tasks, filters, user.id, extrasByTask, labelsByTask],
+    () => filterTasks(data.tasks, filters, {
+      me: user.id, fields: data.fields, extraAssignees: extrasByTask, taskLabels: labelsByTask, fieldValues: fieldValuesByTask,
+    }),
+    [data.tasks, data.fields, filters, user.id, extrasByTask, labelsByTask, fieldValuesByTask],
   );
   const openId = params.get('task');
 
@@ -89,7 +94,7 @@ export default function ProjectPage() {
   const matchCount = shownTasks.filter((t) => !t.parent_id && !(hideCompleted && t.completed)).length;
   const viewProps = {
     sections, tasks: shownTasks, members, hideCompleted, actions, onOpen: open,
-    labels, labelsByTask, extrasByTask, readOnly,
+    labels, labelsByTask, extrasByTask, fields: data.fields, fieldValuesByTask, readOnly,
   };
 
   const toggleArchive = async () => {
@@ -210,6 +215,11 @@ export default function ProjectPage() {
                     <Icon.tag /> Labels
                   </button>
                 )}
+                {!readOnly && (
+                  <button className="menu-item" onClick={() => { setShowMenu(false); setShowFields(true); }}>
+                    <Icon.list /> Custom fields
+                  </button>
+                )}
                 {workspaceAdmin && (
                   <button className="menu-item" onClick={duplicate}>
                     <Icon.copy /> Duplicate project
@@ -246,7 +256,8 @@ export default function ProjectPage() {
         </div>
       )}
 
-      <FilterBar filters={filters} onChange={setFilters} members={members} labels={labels} resultCount={matchCount} />
+      <FilterBar filters={filters} onChange={setFilters} members={members} labels={labels} fields={data.fields} resultCount={matchCount}
+        onManageFields={readOnly ? undefined : () => setShowFields(true)} />
 
       {sections.length === 0 && (
         <div className="empty-state">
@@ -264,6 +275,9 @@ export default function ProjectPage() {
       {openId && <TaskPanel key={openId} taskId={openId} onClose={close} onPatch={actions.patchLocal} onRemoved={actions.removeLocal} />}
       {showLabels && (
         <LabelsModal labels={labels} taskLabels={data.taskLabels} actions={actions} onClose={() => setShowLabels(false)} />
+      )}
+      {showFields && (
+        <FieldsModal fields={data.fields} fieldValues={data.fieldValues} actions={actions} onClose={() => setShowFields(false)} />
       )}
       {showDetails && (
         <ProjectDetails project={project} isOwner={isOwner} onClose={() => setShowDetails(false)}

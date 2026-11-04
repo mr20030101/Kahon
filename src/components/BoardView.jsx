@@ -6,18 +6,19 @@ import { byPosition } from '../lib/position';
 import { lift, settle } from '../lib/motion';
 import { columnDndId, dropPosition, sectionDndId, taskDrop, typedCollisions, useDndSensors } from '../lib/dnd';
 import { subtaskCounts } from './ListView';
+import { FieldChips } from './FieldsModal';
 import { LabelChips } from './LabelsModal';
 import { Avatar, Check, CreatedLabel, DueLabel, EditableText, Icon, InlineAdd, PriorityTag } from './ui';
 import { useDeleteSection } from './DeleteSectionDialog';
 
-export default function BoardView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask, readOnly }) {
+export default function BoardView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask, fields = [], fieldValuesByTask, readOnly }) {
   const [active, setActive] = useState(null);
   const boardRef = useRef(null);
   const counts = useMemo(() => subtaskCounts(tasks), [tasks]);
   const memberById = useMemo(() => Object.fromEntries(members.map((m) => [m.user_id, m.profile])), [members]);
   const top = tasks.filter((t) => !t.parent_id && !(hideCompleted && t.completed));
   const sensors = useDndSensors();
-  const deco = { labels, labelsByTask, extrasByTask };
+  const deco = { labels, labelsByTask, extrasByTask, fields, fieldValuesByTask };
 
   // The board has no visible scrollbar: a vertical wheel over empty board space scrolls
   // sideways. Inside a column the wheel still scrolls that column's cards.
@@ -168,6 +169,7 @@ function CardBody({ task, count, memberById, deco, onToggle, lifted }) {
         <p className="card-title">{task.title}</p>
       </div>
       {labelIds?.length > 0 && <LabelChips ids={labelIds} labels={deco.labels} />}
+      <FieldChips fields={deco?.fields} values={deco?.fieldValuesByTask?.get(task.id)} />
       {(task.priority || task.due_date || count || assignee || extras.length > 0 || task.recurrence) && (
         <div className="card-meta">
           <PriorityTag value={task.priority} />

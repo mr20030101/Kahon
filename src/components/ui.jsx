@@ -278,13 +278,13 @@ export function InlineAdd({ label, placeholder, onAdd, className = '' }) {
   );
 }
 
-export function AssigneeSelect({ value, members, onChange, compact, disabled }) {
+export function AssigneeSelect({ value, members, onChange, compact, disabled, label = 'Assignee', emptyText = 'Unassigned' }) {
   return (
     <label className={`field-select${compact ? ' compact' : ''}`} onClick={(e) => e.stopPropagation()}>
       <Avatar profile={members.find((m) => m.user_id === value)?.profile} size={22} />
-      {!compact && <span className="truncate">{members.find((m) => m.user_id === value)?.profile?.full_name || 'Unassigned'}</span>}
-      <select value={value || ''} onChange={(e) => onChange(e.target.value || null)} aria-label="Assignee" disabled={disabled}>
-        <option value="">Unassigned</option>
+      {!compact && <span className="truncate">{members.find((m) => m.user_id === value)?.profile?.full_name || emptyText}</span>}
+      <select value={value || ''} onChange={(e) => onChange(e.target.value || null)} aria-label={label} disabled={disabled}>
+        <option value="">{emptyText}</option>
         {members.map((m) => (
           <option key={m.user_id} value={m.user_id}>{m.profile?.full_name || m.profile?.email}</option>
         ))}

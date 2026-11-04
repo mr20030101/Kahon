@@ -1406,3 +1406,49 @@ kbd { padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; backg
 @media (prefers-reduced-motion: reduce) { .floating-timer, .floating-pulse::after { animation: none; } }
 @media (max-width: 520px) { .floating-clock { font-size: 17px; } }
 @media print { .floating-timer { display: none; } }
+
+/* ============ Filters panel ============ */
+.filter-panel { top: calc(100% + 6px); left: 0; width: min(560px, calc(100vw - 32px)); padding: 18px 20px; display: grid; gap: 10px; }
+.filter-head { display: flex; align-items: center; justify-content: space-between; }
+.filter-head h4 { margin: 0; font-size: 16px; }
+.filter-section { margin: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.quick-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.quick-chip { display: inline-flex; align-items: center; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); }
+.quick-chip > button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 13.5px; color: var(--ink); }
+.quick-chip > button svg { color: var(--ink-3); }
+.quick-chip:hover { border-color: var(--ink-3); }
+.quick-chip.is-on { border-color: var(--primary); background: var(--mango-soft); }
+.quick-chip.is-on > button, .quick-chip.is-on > button svg { color: var(--primary); }
+.quick-caret { display: grid; place-items: center; width: 26px; height: 32px; margin-left: -6px; border-left: 1px solid var(--line); border-radius: 0 999px 999px 0; color: var(--ink-3); }
+.quick-caret svg { transform: rotate(90deg); }
+.quick-when { top: calc(100% + 6px); left: 0; min-width: 190px; }
+.quick-when > button { justify-content: space-between; }
+.quick-when > button.is-on { color: var(--primary); font-weight: 600; }
+.filter-rules { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
+.filter-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; border-radius: 10px; background: var(--surface-2); }
+.filter-field { font-size: 13.5px; font-weight: 600; min-width: 96px; }
+.filter-rule .input { width: auto; flex: 1 1 130px; height: 32px; font-size: 13.5px; }
+.filter-rule .icon-btn { margin-left: auto; }
+.filter-add { justify-self: start; }
+.filter-add > .link-btn { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--ink-2); }
+.filter-add > .link-btn:hover { color: var(--ink); }
+.filter-fields { top: calc(100% + 6px); left: 0; width: 240px; max-height: 360px; overflow-y: auto; }
+.filter-fields > button svg, .filter-manage svg { color: var(--ink-2); }
+@media (max-width: 520px) { .filter-panel { padding: 14px; } .filter-field { min-width: 0; flex-basis: 100%; } }
+
+/* ============ Custom fields ============ */
+.field-create { display: grid; grid-template-columns: 1fr 160px auto; gap: 8px; margin-top: 12px; }
+@media (max-width: 520px) { .field-create { grid-template-columns: 1fr 1fr; } .field-create .btn { grid-column: 1 / -1; } }
+.field-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.field-list > li { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.field-row { display: flex; align-items: center; gap: 10px; }
+.field-row > :first-child { flex: 1; min-width: 0; font-weight: 600; }
+.field-type { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+.field-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.field-option { display: inline-flex; align-items: center; gap: 4px; padding: 2px 2px 2px 6px; border-radius: 999px; background: color-mix(in srgb, var(--chip) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--chip) 40%, transparent); font-size: 13px; }
+.field-option .color-pick { width: 14px; height: 14px; }
+.field-option .icon-btn { width: 22px; height: 22px; }
+.field-option-add .input { height: 28px; width: 150px; font-size: 13px; }
+.fields .field-input { height: 30px; padding: 2px 8px; font-size: 14px; border-color: transparent; background: transparent; width: 100%; max-width: 260px; }
+.fields .field-input:hover:not(:disabled), .fields .field-input:focus { border-color: var(--line-2); background: var(--surface); }
+.fields dt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

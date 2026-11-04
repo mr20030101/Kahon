@@ -9,6 +9,7 @@ import { AssigneeSelect, Avatar, Check, CreatedLabel, DueInput, EditableText, Ic
 import { confirmDialog } from '../lib/dialog';
 import { useDeleteSection } from './DeleteSectionDialog';
 import { LabelChips } from './LabelsModal';
+import { FieldChips } from './FieldsModal';
 
 export function subtaskCounts(tasks) {
   const counts = {};
@@ -26,7 +27,7 @@ const MEASURING = { droppable: { strategy: MeasuringStrategy.Always } };
 // Selection (for bulk actions) and per-task labels/assignees, shared with the rows.
 const ListContext = createContext({ selected: new Set(), toggle: () => {}, deco: {}, readOnly: false });
 
-export default function ListView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask, readOnly }) {
+export default function ListView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask, fields = [], fieldValuesByTask, readOnly }) {
   const [active, setActive] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
   const toggle = useCallback((id) => setSelected((cur) => {
@@ -36,8 +37,8 @@ export default function ListView({ sections, tasks, members, hideCompleted, acti
     return next;
   }), []);
   const memberById = useMemo(() => Object.fromEntries(members.map((m) => [m.user_id, m.profile])), [members]);
-  const ctx = useMemo(() => ({ selected, toggle, readOnly, deco: { labels, labelsByTask, extrasByTask, memberById } }),
-    [selected, toggle, readOnly, labels, labelsByTask, extrasByTask, memberById]);
+  const ctx = useMemo(() => ({ selected, toggle, readOnly, deco: { labels, labelsByTask, extrasByTask, memberById, fields, fieldValuesByTask } }),
+    [selected, toggle, readOnly, labels, labelsByTask, extrasByTask, memberById, fields, fieldValuesByTask]);
   const listRef = useRef(null);
   const counts = useMemo(() => subtaskCounts(tasks), [tasks]);
   const top = tasks.filter((t) => !t.parent_id && !(hideCompleted && t.completed));
@@ -203,6 +204,7 @@ function TaskRow({ task, count, members, actions, onOpen }) {
         <Check checked={task.completed} onChange={(v) => set({ completed: v })} disabled={readOnly} />
         <button className="task-title" onClick={(e) => { e.stopPropagation(); onOpen(task.id); }}>{task.title}</button>
         <LabelChips ids={deco.labelsByTask?.get(task.id)} labels={deco.labels} max={2} />
+        <FieldChips fields={deco.fields} values={deco.fieldValuesByTask?.get(task.id)} max={2} />
         {task.recurrence && <span className="mini-count" title={`Repeats ${task.recurrence}`}><Icon.repeat width="14" height="14" /></span>}
         {extras.length > 0 && (
           <span className="avatar-row" title={`Also assigned: ${extras.map((p) => p.full_name).join(', ')}`}>
