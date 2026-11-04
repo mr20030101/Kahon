@@ -4,6 +4,7 @@ import { supabaseConfigured } from './lib/supabase';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { WorkspaceProvider } from './context/WorkspaceContext';
+import { TimerProvider } from './context/TimerContext';
 import Footer from './components/Footer';
 import UpdateBanner from './components/UpdateBanner';
 import Sidebar from './components/Sidebar';
@@ -37,6 +38,7 @@ function Shell() {
 
   return (
     <WorkspaceProvider>
+      <TimerProvider>
       <div className="app">
         <Sidebar open={navOpen} onNavigate={() => setNavOpen(false)} />
         <SearchPalette />
@@ -60,6 +62,7 @@ function Shell() {
           <Footer releaseNotes />
         </main>
       </div>
+      </TimerProvider>
     </WorkspaceProvider>
   );
 }

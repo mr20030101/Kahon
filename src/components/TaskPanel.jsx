@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext';
 import Attachments, { removeAttachmentFiles } from './Attachments';
 import AskAI from './AskAI';
 import Comments from './Comments';
+import TaskTimer from './TaskTimer';
 import RichText from './RichText';
 import { ActivityLog, ExtraAssignees, LabelPicker, MoveTaskModal, RepeatSelect } from './TaskExtras';
 import { AssigneeSelect, Avatar, Check, DueInput, Icon, InlineAdd, PrioritySelect } from './ui';
@@ -334,6 +335,8 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
               <dd><DueInput value={task.due_date} completed={task.completed} onChange={(v) => save({ due_date: v })} disabled={!editable} /></dd>
               <dt>Created</dt>
               <dd><span className="field-static" title={new Date(task.created_at).toLocaleString()}>{formatCreated(task.created_at)}</span></dd>
+              <dt>Time</dt>
+              <dd><TaskTimer task={task} members={members} userId={user.id} editable={editable} isOwner={isOwner} /></dd>
               <dt>Priority</dt>
               <dd><PrioritySelect value={task.priority} onChange={(v) => save({ priority: v })} disabled={!editable} /></dd>
               <dt>Labels</dt>

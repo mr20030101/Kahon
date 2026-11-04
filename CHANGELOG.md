@@ -14,6 +14,11 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Time tracking: **Start timer** in a task's new **Time** field. The running timer shows in the top bar on every page (click it to open the task, or stop it there), keeps running across reloads and devices, and starting one on another task stops the first. **Log time** shows everyone's time on the task, lets you add time worked offline (like `1h 30m`, with a day and a note) and remove your own entries. Editors and project admins track time; everyone in the project sees it. One entry is at most 24 hours.
+- This needs `supabase/migrations/20261104_task_timer.sql`.
+
 ## 1.9.0 — 2026-11-04
 
 ### Added
