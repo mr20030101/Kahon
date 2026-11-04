@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useNow, useTimer } from '../context/TimerContext';
-import { entrySeconds, formatClock } from '../lib/duration';
 import { SEARCH_SHORTCUT, openSearch } from './SearchPalette';
 import SettingsModal from './SettingsModal';
 import { Avatar, Icon, Lockup } from './ui';
@@ -37,7 +34,6 @@ export default function Topbar({ onOpenNav }) {
         <kbd>{SEARCH_SHORTCUT}</kbd>
       </button>
 
-      <TimerChip />
       <div className="menu-wrap topbar-me" ref={wrapRef}>
         <button type="button" className="topbar-profile" onClick={() => setMenuOpen((o) => !o)}
           aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Profile menu">
@@ -66,25 +62,3 @@ export default function Topbar({ onOpenNav }) {
   );
 }
 
-// Your running timer, from any page: the task (opens it), how long, and a stop button.
-function TimerChip() {
-  const { running, stop } = useTimer();
-  const now = useNow(!!running);
-  if (!running) return null;
-  const elapsed = formatClock(entrySeconds(running, now));
-  const task = running.task;
-  return (
-    <div className="timer-chip" role="status">
-      <span className="timer-dot" aria-hidden="true" />
-      {task ? (
-        <Link to={`/p/${task.project_id}?task=${task.id}`} className="timer-chip-task" title={`Open "${task.title}"`}>
-          <span className="truncate">{task.title}</span>
-        </Link>
-      ) : <span className="timer-chip-task">Timer</span>}
-      <span className="timer-chip-clock">{elapsed}</span>
-      <button type="button" className="icon-btn" onClick={stop} aria-label={`Stop the timer (${elapsed})`} title="Stop timer">
-        <Icon.stop width="14" height="14" />
-      </button>
-    </div>
-  );
-}

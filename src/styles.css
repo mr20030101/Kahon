@@ -1346,10 +1346,21 @@ kbd { padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; backg
 .timer-add .btn { grid-column: 1 / -1; justify-self: end; }
 .timer-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); animation: pulse 1s ease-in-out infinite alternate; flex: none; }
 @media (prefers-reduced-motion: reduce) { .timer-dot { animation: none; } }
-.timer-chip { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 300px; height: 36px; margin-left: auto; padding: 0 4px 0 12px; border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--danger) 7%, var(--surface)); font-size: 13px; }
-.timer-chip + .topbar-me { margin-left: 0; }
-.timer-chip-task { min-width: 0; color: var(--ink); font-weight: 600; text-decoration: none; display: flex; }
-.timer-chip-task:hover { color: var(--primary); }
-.timer-chip-clock { color: var(--danger); font-weight: 700; font-variant-numeric: tabular-nums; }
-.timer-chip .icon-btn { width: 28px; height: 28px; color: var(--danger); }
-@media (max-width: 640px) { .timer-chip-task { display: none; } .timer-chip { padding-left: 10px; } }
+.floating-timer {
+  position: fixed; z-index: 60; display: flex; align-items: center; gap: 6px; max-width: min(340px, calc(100vw - 24px));
+  height: 46px; padding: 0 6px 0 4px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line));
+  border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-lift); font-size: 14px;
+}
+.floating-grip { display: grid; place-items: center; width: 30px; height: 36px; border-radius: 999px; cursor: grab; touch-action: none; }
+.floating-grip:active { cursor: grabbing; }
+.floating-grip:hover, .floating-grip:focus-visible { background: var(--surface-2); }
+.floating-task { min-width: 0; color: var(--ink); font-weight: 600; text-decoration: none; display: flex; }
+.floating-task:hover { color: var(--primary); }
+.floating-clock { color: var(--danger); font-weight: 700; font-variant-numeric: tabular-nums; padding: 0 2px; }
+.floating-timer .icon-btn { width: 30px; height: 30px; }
+.floating-stop { color: var(--danger); }
+.floating-stop:hover { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
+.floating-size svg { transform: rotate(180deg); transition: transform 0.15s; color: var(--ink-3); }
+.floating-timer.is-small .floating-size svg { transform: none; }
+.floating-timer.is-small { padding-left: 2px; }
+@media print { .floating-timer { display: none; } }

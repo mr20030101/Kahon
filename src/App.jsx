@@ -25,6 +25,7 @@ import AdminEmails from './pages/AdminEmails';
 import AdminFiles from './pages/AdminFiles';
 import SearchPalette from './components/SearchPalette';
 import Topbar from './components/Topbar';
+import FloatingTimer from './components/FloatingTimer';
 
 function Shell() {
   const { session, loading, needsMfa, recovering } = useAuth();
@@ -61,6 +62,7 @@ function Shell() {
           </Routes>
           <Footer releaseNotes />
         </main>
+        <FloatingTimer />
       </div>
       </TimerProvider>
     </WorkspaceProvider>
