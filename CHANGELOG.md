@@ -14,6 +14,15 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Custom fields: a project can have its own task fields, like Task type, Reporter or Site, from the project's **⋯** menu → **Custom fields**. Types: single select and multi-select (with coloured options), person, text, number and date. They're edited in the task panel, select options show as chips on cards and list rows, and duplicating a task copies them. Editors and project admins manage them; everyone in the project sees them.
+- This needs `supabase/migrations/20261104_custom_fields.sql`.
+
+### Changed
+
+- The **Filter** menu is now a Filters panel. **Quick filters**: Incomplete tasks, Completed tasks (any time, today, last 7 or 30 days), Just my tasks, Due this week and Due next week. **Add filter** filters by Completion status, Assignee, Due date, Created by, Created on, Last modified on, Completed on, Priority, Labels or any custom field, with conditions like is, is not, is empty, this week or before a date. Every filter has to match.
+
 ## 1.10.1 — 2026-11-04
 
 ### Changed

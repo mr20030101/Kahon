@@ -9,6 +9,7 @@ import Attachments, { removeAttachmentFiles } from './Attachments';
 import AskAI from './AskAI';
 import Comments from './Comments';
 import TaskTimer from './TaskTimer';
+import CustomFields from './CustomFields';
 import RichText from './RichText';
 import { ActivityLog, ExtraAssignees, LabelPicker, MoveTaskModal, RepeatSelect } from './TaskExtras';
 import { AssigneeSelect, Avatar, Check, DueInput, Icon, InlineAdd, PrioritySelect } from './ui';
@@ -169,12 +170,14 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
         description: st.description, assignee_id: stillMember(st.assignee_id), due_date: st.due_date, priority: st.priority, position: st.position,
       })));
     }
-    const [{ data: tl }, { data: ta }] = await Promise.all([
+    const [{ data: tl }, { data: ta }, { data: fv }] = await Promise.all([
       supabase.from('task_labels').select('label_id').eq('task_id', taskId),
       supabase.from('task_assignees').select('user_id').eq('task_id', taskId),
+      supabase.from('task_field_values').select('field_id, value').eq('task_id', taskId),
     ]);
     if (tl?.length) await supabase.from('task_labels').insert(tl.map((r) => ({ task_id: data.id, label_id: r.label_id })));
     if (ta?.length) await supabase.from('task_assignees').insert(ta.map((r) => ({ task_id: data.id, user_id: r.user_id })));
+    if (fv?.length) await supabase.from('task_field_values').insert(fv.map((r) => ({ task_id: data.id, field_id: r.field_id, value: r.value })));
     onPatch?.(data.id, data, true);
     toast('Task duplicated');
   };
@@ -361,6 +364,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                   </dd>
                 </>
               )}
+              <CustomFields task={task} members={members} editable={editable} />
             </dl>
 
             <h4 className="panel-h">Description</h4>

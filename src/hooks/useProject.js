@@ -8,7 +8,7 @@ import { PROFILE_BRIEF } from '../lib/profiles';
 
 const EMPTY = {
   loading: true, error: null, project: null, sections: [], tasks: [], members: [],
-  labels: [], taskLabels: [], extraAssignees: [],
+  labels: [], taskLabels: [], extraAssignees: [], fields: [], fieldValues: [],
 };
 
 const MEMBER_SELECT = `role, user_id, profile:profiles(${PROFILE_BRIEF})`;
@@ -43,16 +43,21 @@ export function useProject(projectId) {
   // Labels, which tasks carry them, and extra assignees. Loaded and refreshed separately
   // because their change events can't be filtered by project.
   const loadLinks = useCallback(async () => {
-    const [l, tl, ta] = await Promise.all([
+    const [l, tl, ta, f, fv] = await Promise.all([
       supabase.from('project_labels').select('*').eq('project_id', projectId).order('name'),
       supabase.from('task_labels').select('task_id, label_id, label:project_labels!inner(project_id)').eq('label.project_id', projectId),
       supabase.from('task_assignees').select('task_id, user_id, task:tasks!inner(project_id)').eq('task.project_id', projectId),
+      // Custom fields: errors (as before their migration) just mean none.
+      supabase.from('project_fields').select('*').eq('project_id', projectId).order('position').order('created_at'),
+      supabase.from('task_field_values').select('task_id, field_id, value, field:project_fields!inner(project_id)').eq('field.project_id', projectId),
     ]);
     setState((st) => ({
       ...st,
       labels: l.data || [],
       taskLabels: (tl.data || []).map(({ task_id, label_id }) => ({ task_id, label_id })),
       extraAssignees: (ta.data || []).map(({ task_id, user_id }) => ({ task_id, user_id })),
+      fields: f.data || [],
+      fieldValues: (fv.data || []).map(({ task_id, field_id, value }) => ({ task_id, field_id, value })),
     }));
   }, [projectId]);
 
@@ -94,6 +99,8 @@ export function useProject(projectId) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'project_labels', filter: `project_id=eq.${projectId}` }, reloadLinks)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_labels' }, reloadLinks)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, reloadLinks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_fields', filter: `project_id=eq.${projectId}` }, reloadLinks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_field_values' }, reloadLinks)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects', filter: `id=eq.${projectId}` }, ({ new: row }) =>
         setState((st) => ({ ...st, project: { ...st.project, ...row } })))
       .subscribe();
@@ -245,6 +252,35 @@ export function useProject(projectId) {
     if (error) fail(error);
   }, [fail]);
 
+  // ---------- Custom fields ----------
+  const createField = useCallback(async ({ name, type, options = [] }) => {
+    const position = ref.current.fields.reduce((max, f) => Math.max(max, f.position), 0) + 1000;
+    const { data, error } = await supabase.from('project_fields')
+      .insert({ project_id: projectId, name: name.trim(), type, options, position }).select().single();
+    if (error) {
+      toast(error.code === '23505' ? 'There is already a field with that name' : error.message, 'error');
+      return null;
+    }
+    setState((st) => ({ ...st, fields: [...st.fields, data] }));
+    return data;
+  }, [projectId, toast]);
+
+  const updateField = useCallback(async (id, patch) => {
+    setState((st) => ({ ...st, fields: st.fields.map((f) => (f.id === id ? { ...f, ...patch } : f)) }));
+    const { error } = await supabase.from('project_fields').update(patch).eq('id', id);
+    if (error) fail(error.code === '23505' ? { message: 'There is already a field with that name' } : error);
+  }, [fail]);
+
+  const deleteField = useCallback(async (id) => {
+    setState((st) => ({
+      ...st,
+      fields: st.fields.filter((f) => f.id !== id),
+      fieldValues: st.fieldValues.filter((v) => v.field_id !== id),
+    }));
+    const { error } = await supabase.from('project_fields').delete().eq('id', id);
+    if (error) fail(error);
+  }, [fail]);
+
   const deleteLabel = useCallback(async (id) => {
     setState((st) => ({
       ...st,
@@ -282,6 +318,7 @@ export function useProject(projectId) {
       updateProject, deleteProject, setArchived, duplicateProject,
       bulkUpdate, bulkDelete,
       createLabel, updateLabel, deleteLabel,
+      createField, updateField, deleteField,
     },
   };
 }
