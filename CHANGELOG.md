@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.11.0 — 2026-11-04
+
 ### Added
 
 - Custom fields: a project can have its own task fields, like Task type, Reporter or Site, from the project's **⋯** menu → **Custom fields**. Types: single select and multi-select (with coloured options), person, text, number and date. They're edited in the task panel, select options show as chips on cards and list rows, and duplicating a task copies them. Editors and project admins manage them; everyone in the project sees them.
