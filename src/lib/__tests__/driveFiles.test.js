@@ -17,6 +17,7 @@ const PROJECT = '11111111-1111-4111-8111-111111111111';
 const TASK = '22222222-2222-4222-8222-222222222222';
 const UPLOAD = '33333333-3333-4333-8333-333333333333';
 const ROW = '44444444-4444-4444-8444-444444444444';
+const COMMENT = '55555555-5555-4555-8555-555555555555';
 const PDF = 'application/pdf';
 const pdfBytes = () => new TextEncoder().encode('%PDF-1.7 rest of the file');
 
@@ -94,6 +95,28 @@ describe('start', () => {
     expect((await handleFilesPost(post({ ...start, task_id: null, mime: 'image/png' }), ENV, fakeFetch(), NOW)).status).toBe(400);
   });
 
+  it("adds a file to the caller's own comment, checking the comment rather than edit rights", async () => {
+    const fetchImpl = fakeFetch();
+    expect((await handleFilesPost(post({ ...start, comment_id: COMMENT }), ENV, fetchImpl, NOW)).status).toBe(200);
+    const [[url, rpc]] = calls(fetchImpl, '/rest/v1/rpc/');
+    expect(url).toContain('rpc/can_attach_to_comment');
+    expect(JSON.parse(rpc.body)).toEqual({ p_comment: COMMENT, p_task: TASK });
+    const [[, recorded]] = calls(fetchImpl, '/rest/v1/drive_uploads', 'POST');
+    expect(JSON.parse(recorded.body)[0]).toMatchObject({ task_id: TASK, comment_id: COMMENT });
+
+    const notTheirs = await handleFilesPost(post({ ...start, comment_id: COMMENT }), ENV, fakeFetch({ canEdit: false }), NOW);
+    expect(notTheirs.status).toBe(403);
+    expect((await notTheirs.json()).message).toMatch(/own comments/);
+    expect((await handleFilesPost(post({ ...start, task_id: null, comment_id: COMMENT }), ENV, fakeFetch(), NOW)).status).toBe(400);
+  });
+
+  it('leaves comment_id out of task uploads', async () => {
+    const fetchImpl = fakeFetch();
+    await handleFilesPost(post(start), ENV, fetchImpl, NOW);
+    const [[, recorded]] = calls(fetchImpl, '/rest/v1/drive_uploads', 'POST');
+    expect(JSON.parse(recorded.body)[0]).not.toHaveProperty('comment_id');
+  });
+
   it('says Drive is off when it is not set up, so the app uses Supabase Storage', async () => {
     const response = await handleFilesPost(post(start), { ...ENV, GOOGLE_DRIVE_FOLDER_ID: '' }, fakeFetch(), NOW);
     expect(response.status).toBe(503);
@@ -111,6 +134,15 @@ describe('finish', () => {
     });
     const [[, insert]] = calls(fetchImpl, '/rest/v1/task_attachments', 'POST');
     expect(insert.headers.Authorization).toBe('Bearer user-token');
+  });
+
+  it('adds the row to the comment the upload was started for', async () => {
+    const upload = { id: UPLOAD, user_id: 'user-1', project_id: PROJECT, task_id: TASK, comment_id: COMMENT, kind: 'file', mime_type: PDF, size_bytes: 25 };
+    const fetchImpl = fakeFetch({ upload });
+    // Whatever the request says, the comment comes from the upload record.
+    expect((await handleFilesPost(post({ ...finish, comment_id: 'ignored' }), ENV, fetchImpl, NOW)).status).toBe(200);
+    const [[, insert]] = calls(fetchImpl, '/rest/v1/task_attachments', 'POST');
+    expect(JSON.parse(insert.body)).toMatchObject({ task_id: TASK, comment_id: COMMENT });
   });
 
   it('deletes a file that arrived with the wrong size or bytes', async () => {

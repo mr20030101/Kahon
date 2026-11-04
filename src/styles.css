@@ -643,6 +643,19 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .attachment-add:hover { border-color: var(--primary); color: var(--primary); }
 .attachment-add .hint { font-weight: 400; }
 
+/* Files added with a comment: under its text, and waiting in the comment box */
+.comment-files { grid-template-columns: repeat(auto-fill, minmax(96px, 128px)); margin: 6px -4px 0; }
+.comment-box.is-drop { border-color: var(--primary); border-style: dashed; background: var(--mango-soft); }
+.comment-pending { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; padding: 0 4px; }
+.pending-file {
+  position: relative; width: 64px; height: 48px; border-radius: 6px; overflow: hidden;
+  background: var(--surface-2); border: 1px solid var(--line); display: grid; place-items: center;
+}
+.pending-file img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pending-file .file-badge { position: static; }
+.pending-file .icon-btn { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; background: var(--surface); box-shadow: var(--shadow); }
+.pending-file .icon-btn svg { width: 12px; height: 12px; }
+
 .panel-drop {
   position: absolute; inset: 10px; z-index: 5; pointer-events: none; display: grid; place-content: center; justify-items: center; gap: 6px;
   border: 2px dashed var(--mango); border-radius: 12px; background: color-mix(in srgb, var(--mango-soft) 92%, transparent); color: var(--ink); text-align: center;
