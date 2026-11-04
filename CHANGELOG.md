@@ -14,9 +14,11 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.8.0 — 2026-11-04
+
 ### Added
 
-- Comments can include images and files. Paste a screenshot into the comment box, drop files on it, or pick them with the paperclip. They're shown under the comment rather than in the task's Attachments, and a comment can be just an image. Commenters can add files to their own comments; deleting a comment deletes its files.
+- Comments can include images and files. Paste a screenshot into the comment box, drop files on it, or pick them from the **+** menu. They're shown under the comment rather than in the task's Attachments, and a comment can be just an image. Commenters can add files to their own comments; deleting a comment deletes its files.
 - This needs `supabase/migrations/20261104_comment_files.sql` (and a redeploy of the `delete-account` Edge Function).
 - Comment formatting: a toolbar (bold, italic, underline, strikethrough, link, highlight, code, quote, lists) and a **+** menu (headings, mention, emoji, embed link, table, divider, quote, code block, image, attach files). Shortcuts: Ctrl/⌘ + B, I, U, K, E. Descriptions show the same formatting.
 - A YouTube, Vimeo or Loom link on its own line shows the video.
