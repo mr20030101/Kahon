@@ -5,12 +5,13 @@ import { useInbox } from '../hooks/useInbox';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { WorkspaceFilter, WorkspaceTag } from '../components/Workspaces';
 import { timeAgo } from '../lib/dates';
-import { plainMentions } from '../lib/richtext';
+import { plainText } from '../lib/richtext';
 import { Avatar, Icon } from '../components/ui';
 
 const WHAT = {
   assigned: 'assigned you',
   comment: 'commented on',
+  reply: 'replied to a comment on',
   updated: 'updated',
   mention: 'mentioned you on',
   added_to_project: 'added you to',
@@ -114,7 +115,7 @@ export default function Inbox() {
                         {WHAT[n.kind]}{' '}
                         <strong>{n.kind === 'added_to_project' ? n.project?.name : n.task?.title ?? 'a deleted task'}</strong>
                       </span>
-                      {n.comment?.body && <span className="inbox-quote">{plainMentions(n.comment.body).slice(0, 240)}</span>}
+                      {n.comment?.body && <span className="inbox-quote">{plainText(n.comment.body).slice(0, 240)}</span>}
                     </span>
                     <span className="inbox-project muted small">
                       {n.project && <><span className="swatch" style={{ background: n.project.color }} /> <span className="truncate">{n.project.name}</span> <WorkspaceTag projectId={n.project.id} /></>}

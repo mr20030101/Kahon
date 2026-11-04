@@ -1318,3 +1318,7 @@ kbd { padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; backg
 .ask-warning.is-danger strong { display: flex; align-items: center; gap: 6px; color: var(--danger); }
 .ask-warning ul { margin: 0; padding-left: 20px; }
 .ask-warning code { font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--surface); overflow-wrap: anywhere; }
+/* Popovers that would run off the panel open the other way (see Popover). */
+.popover.open-down { top: calc(100% + 6px); bottom: auto; }
+.popover.open-up { bottom: calc(100% + 6px); top: auto; }
+.check.is-disabled { opacity: 0.6; }

@@ -250,7 +250,7 @@ const MentionInput = forwardRef(function MentionInput(
                   <hr />
                   <button type="button" onMouseDown={keep} onClick={run(mention)}><Icon.at /> Mention</button>
                   <button type="button" onMouseDown={keep} onClick={() => setOpen('emoji')}><Icon.smile /> Emoji</button>
-                  <button type="button" onMouseDown={keep} onClick={run(() => insertBlock('https://', 0, 8))} title="A YouTube, Vimeo or Loom link on its own line shows the video">
+                  <button type="button" onMouseDown={keep} onClick={run(() => insertBlock('https://', 0, 8))} title="A YouTube, Vimeo, Loom, OK.ru, Dailymotion, Google Drive or Figma link (or its embed code) on its own line shows the player">
                     <Icon.link /> Embed link
                   </button>
                   <hr />

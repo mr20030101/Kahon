@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { dayDiff, timeAgo } from '../lib/dates';
-import { plainMentions } from '../lib/richtext';
+import { plainText } from '../lib/richtext';
 import { PROFILE_BRIEF } from '../lib/profiles';
 import { notifyTaskUpdate } from '../lib/notify';
 import { canEdit } from '../lib/roles';
@@ -401,7 +401,7 @@ export default function Home() {
                       <Avatar profile={n.actor} size={26} />
                       <span className="hmention-text">
                         <span className="truncate"><strong>{n.actor?.full_name || 'Someone'}</strong> · {timeAgo(n.created_at)}</span>
-                        {n.comment?.body && <span className="hmention-quote">{plainMentions(n.comment.body)}</span>}
+                        {n.comment?.body && <span className="hmention-quote">{plainText(n.comment.body)}</span>}
                         <span className="muted small truncate">on {n.task?.title ?? 'a deleted task'}</span>
                       </span>
                     </button>

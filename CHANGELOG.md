@@ -14,6 +14,25 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- More embeds: OK.ru, Dailymotion, Google Drive files and Figma links on their own line show a player, and pasted `<iframe>` embed code from a supported site does too.
+
+### Changed
+
+- Replies show as "replied to a comment on …" in the Inbox, and reply emails say "replied to a comment".
+- Ask AI questions are kept for 30 days, then cleared (the usage numbers stay).
+- Email quotes, Inbox and Home previews show comments as plain text instead of raw formatting marks, and Ask AI reads them that way too (mentions as @Name).
+- Removing a task attachment asks you to confirm first, like comment files.
+- Menus in the comment box (the **+** menu, emoji) open downward, or scroll, when there isn't room above.
+
+### Fixed
+
+- Ask AI now reads the text of files added to comments when they're stored in Supabase Storage.
+- The Mark complete button no longer has a button nested inside it (a browser warning, and confusing for screen readers).
+
+These need `supabase/migrations/20261104_replies_and_ai_retention.sql`, redeploys of the `ask-ai` and `notify` Edge Functions, and a Vercel deploy (for the new embed sites).
+
 ## 1.8.0 — 2026-11-04
 
 ### Added

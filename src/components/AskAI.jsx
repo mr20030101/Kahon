@@ -150,7 +150,7 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
       )}
       <p className="hint">
         The AI reads this task's details, subtasks, comments and attachments (not images), plus the project's description and reference files from About.
-        Passwords, keys and server details are hidden from it, and questions are kept for Kahon's admins. It can't run anything, and answers can be wrong; check before acting on them.
+        Passwords, keys and server details are hidden from it, and questions are kept for Kahon's admins for 30 days. It can't run anything, and answers can be wrong; check before acting on them.
       </p>
     </section>
   );

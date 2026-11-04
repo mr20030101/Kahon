@@ -13,7 +13,7 @@
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { CORS, json, requireUser } from '../_shared/auth.ts';
-import { APP_URL, type Email, plainMentions, sendEmail } from '../_shared/email.ts';
+import { APP_URL, type Email, plainText, sendEmail } from '../_shared/email.ts';
 
 // At most one email per kind, item and person in this window.
 const DEDUPE_MINUTES = 10;
@@ -152,7 +152,7 @@ const HANDLERS = {
     const task = await getTask(admin, comment.task_id);
     if (!task) return 0;
 
-    const text = plainMentions(comment.body);
+    const text = plainText(comment.body);
     const quote = text.length > 600 ? `${text.slice(0, 600)}…` : text;
     const url = `${APP_URL}/p/${task.project_id}?task=${task.id}&comment=${comment.id}`;
 
@@ -193,9 +193,11 @@ const HANDLERS = {
       // Keyed by task, so a burst of comments sends one email, not one per comment.
       kind: 'comment_added', refId: task.id, recipientIds: followers, actorId, workspace: task.project.workspace?.name,
       build: (actor) => ({
-        subject: `${actor} commented on "${task.title}"`,
-        heading: 'New comment',
-        intro: `${actor} commented on "${task.title}" in ${task.project.name}.`,
+        subject: comment.parent_id ? `${actor} replied to a comment on "${task.title}"` : `${actor} commented on "${task.title}"`,
+        heading: comment.parent_id ? 'New reply' : 'New comment',
+        intro: comment.parent_id
+          ? `${actor} replied to a comment on "${task.title}" in ${task.project.name}.`
+          : `${actor} commented on "${task.title}" in ${task.project.name}.`,
         quote, cta: 'Reply in Kahon', url,
       }),
     });

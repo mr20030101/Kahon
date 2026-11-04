@@ -263,8 +263,9 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
         )}
         <div className="panel-bar">
           {status === 'ready' && (
-            <button className={`btn btn-complete${task.completed ? ' is-done' : ''}`} onClick={() => save({ completed: !task.completed })} disabled={!editable}>
-              <Check checked={task.completed} onChange={(v) => save({ completed: v })} disabled={!editable} />
+            <button className={`btn btn-complete${task.completed ? ' is-done' : ''}`} onClick={() => save({ completed: !task.completed })} disabled={!editable}
+              aria-pressed={task.completed}>
+              <Check checked={task.completed} decorative disabled={!editable} />
               {task.completed ? 'Completed' : 'Mark complete'}
             </button>
           )}

@@ -19,7 +19,7 @@ export async function sendEmail(to: string, email: Email) {
 }
 
 /** "@[Name](uuid)" mention tokens as plain "@Name". */
-export const plainMentions = (text: string) => text.replace(/@\[([^\]]{1,120})\]\([0-9a-f-]{36}\)/g, '@$1');
+export { plainMentions, plainText } from './plaintext.ts';
 
 const DEFAULT_FOOTER = 'You get these emails because you use Kahon. Turn them off in Settings, under Notifications.';
 
