@@ -9,7 +9,7 @@ import { useToast } from './ToastContext';
 
 const TimerContext = createContext({ running: null, start: async () => {}, stop: async () => {} });
 
-const RUNNING_SELECT = 'id, task_id, user_id, started_at, ended_at, task:tasks(id, title, project_id)';
+const RUNNING_SELECT = 'id, task_id, user_id, started_at, ended_at, task:tasks(id, title, project_id, project:projects(name, color))';
 
 export function TimerProvider({ children }) {
   const { user } = useAuth();
@@ -43,6 +43,7 @@ export function TimerProvider({ children }) {
       return toast(`Couldn't start the timer: ${error.message}`, 'error');
     }
     setRunning({ ...data, task });
+    load(); // for the task's project, which the floating timer shows
     if (previous && previous.task_id !== task.id) toast(`Stopped the timer on "${previous.task?.title ?? 'another task'}"`);
   };
 
