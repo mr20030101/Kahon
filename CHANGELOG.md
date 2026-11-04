@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.10.1 — 2026-11-04
+
 ### Changed
 
 - The floating timer has a new look: a stopwatch badge with a pulsing light, the task's project (with its colour) above the task name, a large clock and a round red Stop button. Drag it by any part, not just the dot. Shrink it to a small pill with the button on its top-left corner, kept away from Stop so shrinking can't stop the timer by mistake.
