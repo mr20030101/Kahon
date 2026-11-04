@@ -5,7 +5,8 @@ import { byPosition } from '../lib/position';
 import { formatCreated, timeAgo } from '../lib/dates';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import Attachments, { removeAttachmentFiles } from './Attachments';
+import Attachments, { ACCEPT, checkFiles, removeAttachmentFiles, useFileViewer } from './Attachments';
+import { CommentFileList, PendingFiles, useCommentFiles, useFileTarget, usePendingFiles } from './CommentFiles';
 import AskAI from './AskAI';
 import MentionInput from './MentionInput';
 import RichText from './RichText';
@@ -40,6 +41,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const attachmentsRef = useRef(null);
   const commentRef = useRef(null);
   const editRef = useRef(null);
+  const commentFileInput = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -239,7 +241,9 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const postComment = async (text) => {
     const fromBox = text === undefined;
     const body = (fromBox ? commentRef.current?.getValue() ?? '' : text).trim().slice(0, 5000);
-    if (!body) return;
+    // Files waiting in the comment box go up with it, so a comment can be just a screenshot.
+    const files = fromBox ? pendingFiles.take() : [];
+    if (!body && !files.length) return;
     if (fromBox) {
       commentRef.current?.clear();
       setCommentText('');
@@ -249,14 +253,19 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
       .insert({ task_id: taskId, author_id: user.id, body })
       .select(COMMENT_SELECT)
       .single();
-    if (error) return toast(error.message, 'error');
+    if (error) {
+      pendingFiles.putBack(files);
+      return toast(error.message, 'error');
+    }
     setComments((list) => (list.some((x) => x.id === data.id) ? list : [...list, data]));
     notify('comment_added', { comment_id: data.id });
+    await commentFiles.upload(data.id, files);
+    pendingFiles.done(files);
   };
 
   const saveCommentEdit = async (c) => {
     const body = (editRef.current?.getValue() ?? '').trim().slice(0, 5000);
-    if (!body) return;
+    if (!body && !commentFiles.of(c.id).length) return;
     setEditingComment(null);
     if (body === c.body) return;
     const edited_at = new Date().toISOString();
@@ -268,7 +277,8 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const deleteComment = async (c) => {
     setComments((list) => list.filter((x) => x.id !== c.id));
     const { error } = await supabase.from('comments').delete().eq('id', c.id);
-    if (error) toast(error.message, 'error');
+    if (error) return toast(error.message, 'error');
+    await commentFiles.clearDeleted(c.id);
   };
 
   const creator = members.find((m) => m.user_id === task?.created_by)?.profile;
@@ -278,10 +288,23 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const editable = canEdit(myRole);
   const commentable = canComment(myRole);
 
+  // Files pasted, dropped or picked in the comment box belong to the comment, not the task.
+  const commentFiles = useCommentFiles(task ?? { id: taskId }, user.id);
+  const pendingFiles = usePendingFiles();
+  const fileViewer = useFileViewer();
+  const [composerFileProps, composerDrag] = useFileTarget(pendingFiles.add, commentable);
+  const [editFileProps, editDrag] = useFileTarget(
+    (files) => editingComment && commentFiles.upload(editingComment, checkFiles(files, toast)), commentable,
+  );
+  const canRemoveCommentFile = (f) => (isOwner || (commentable && f.created_by === user.id) ? commentFiles.remove : undefined);
+
   // Drop files anywhere on the panel to attach them.
   const isFileDrag = (e) => status === 'ready' && editable && [...e.dataTransfer.types].includes('Files');
+  // The comment box takes its own drops.
+  const overComment = (e) => !!e.target.closest?.('.comment-box');
   const dropProps = {
     onDragOver: (e) => {
+      if (overComment(e)) return setFileDrag(false);
       if (!isFileDrag(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
@@ -291,7 +314,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
       if (!e.currentTarget.contains(e.relatedTarget)) setFileDrag(false);
     },
     onDrop: (e) => {
-      if (!isFileDrag(e)) return;
+      if (!isFileDrag(e) || overComment(e)) return;
       e.preventDefault();
       setFileDrag(false);
       attachmentsRef.current?.upload([...e.dataTransfer.files]);
@@ -485,32 +508,44 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                       )}
                     </div>
                     {editingComment === c.id ? (
-                      <div className="comment-box is-editing">
+                      <div className={`comment-box is-editing${editDrag ? ' is-drop' : ''}`} {...editFileProps}>
                         <MentionInput ref={editRef} members={members} initial={c.body} rows={3} autoFocus
                           onSubmit={() => saveCommentEdit(c)} aria-label="Edit comment" />
                         <div className="comment-actions">
-                          <span className="hint">Ctrl + Enter to save</span>
+                          <span className="hint">Paste or drop files to add them · Ctrl + Enter to save</span>
                           <button className="link-btn" onClick={() => setEditingComment(null)}>Cancel</button>
                           <button className="btn btn-primary btn-small" onClick={() => saveCommentEdit(c)}>Save</button>
                         </div>
                       </div>
                     ) : (
-                      <RichText text={c.body} className="comment-text" />
+                      c.body && <RichText text={c.body} className="comment-text" />
                     )}
+                    <CommentFileList files={commentFiles.of(c.id)} uploading={commentFiles.uploadingFor(c.id)}
+                      onOpen={fileViewer.open} canRemove={canRemoveCommentFile} />
                   </div>
                 </li>
               ))}
               {comments.length === 0 && <li className="muted small">{commentable ? 'No comments yet. Ask a question or leave an update.' : 'No comments yet.'}</li>}
             </ul>
             {!commentable && <p className="muted small">You're a viewer in this project, so you can read comments but not add them.</p>}
-            {commentable && <div className="comment-box">
+            {commentable && <div className={`comment-box${composerDrag ? ' is-drop' : ''}`} {...composerFileProps}>
               <MentionInput ref={commentRef} members={members} placeholder="Write a comment. Type @ to mention someone." rows={2}
                 onTextChange={setCommentText} onSubmit={() => postComment()} aria-label="Comment" />
+              <PendingFiles items={pendingFiles.items} onDrop={pendingFiles.drop} />
               <div className="comment-actions">
-                <span className="hint">Ctrl + Enter to post</span>
-                <button className="btn btn-primary" onClick={() => postComment()} disabled={!commentText.trim()}>Comment</button>
+                <button type="button" className="icon-btn" onClick={() => commentFileInput.current?.click()}
+                  aria-label="Add files to the comment" title="Add images or files"><Icon.paperclip /></button>
+                <span className="hint">Paste or drop images · Ctrl + Enter to post</span>
+                <button className="btn btn-primary" onClick={() => postComment()}
+                  disabled={!commentText.trim() && !pendingFiles.items.length}>Comment</button>
               </div>
+              <input ref={commentFileInput} type="file" accept={ACCEPT} multiple hidden
+                onChange={(e) => {
+                  pendingFiles.add([...e.target.files]);
+                  e.target.value = '';
+                }} />
             </div>}
+            {fileViewer.element}
 
             <button type="button" className="link-btn activity-toggle" onClick={() => setShowActivity((v) => !v)} aria-expanded={showActivity}>
               <Icon.history width="16" height="16" /> {showActivity ? 'Hide activity' : 'Show activity'}

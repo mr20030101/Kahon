@@ -14,6 +14,15 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Comments can include images and files. Paste a screenshot into the comment box, drop files on it, or pick them with the paperclip. They're shown under the comment rather than in the task's Attachments, and a comment can be just an image. Commenters can add files to their own comments; deleting a comment deletes its files.
+- This needs `supabase/migrations/20261104_comment_files.sql` (and a redeploy of the `delete-account` Edge Function).
+
+### Changed
+
+- Pasting or dropping a file into the comment box adds it to that comment instead of the task's Attachments. Pasting anywhere else in the task panel still attaches to the task.
+
 ## 1.7.0 — 2026-10-30
 
 ### Added

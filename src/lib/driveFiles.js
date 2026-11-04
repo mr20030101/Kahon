@@ -2,8 +2,9 @@
 // api/files.js (see googleDrive.js and supabase/migrations/20261030_google_drive_files.sql).
 // Server only: imported by api/files.js and the tests, never by the app.
 //
-//   POST {action:'start'}   the caller may add a file here: start Drive uploads (the file, and an
-//                           image's thumbnail) that the browser sends the bytes to directly.
+//   POST {action:'start'}   the caller may add a file here (a task, one of their own comments on
+//                           it, or a project): start Drive uploads (the file, and an image's
+//                           thumbnail) that the browser sends the bytes to directly.
 //   POST {action:'finish'}  check what arrived in Drive (size, type, first bytes), then insert the
 //                           row with the caller's own access, so RLS decides as it always has.
 //   POST {action:'sign'}    signed URLs for rows the caller can read, like Supabase's signed URLs.
@@ -155,8 +156,9 @@ export async function handleFilesPost(request, env, fetchImpl = fetch, now = new
 }
 
 async function startUpload({ request, env, fetchImpl, now, caller, rest }, body) {
-  const { project_id: projectId, task_id: taskId = null, name, mime, size, thumb = null } = body;
+  const { project_id: projectId, task_id: taskId = null, comment_id: commentId = null, name, mime, size, thumb = null } = body;
   if (!UUID.test(projectId ?? '') || (taskId !== null && !UUID.test(taskId))) return refuse(400, 'Unknown project or task.');
+  if (commentId !== null && (taskId === null || !UUID.test(commentId))) return refuse(400, 'Unknown comment.');
   if (typeof name !== 'string' || !name.trim() || name.length > 255) return refuse(400, 'That file name is not allowed.');
   const ext = EXT[mime];
   if (!ext || (!taskId && !PROJECT_EXTS.includes(ext))) return refuse(400, "That type of file can't be added here.");
@@ -171,9 +173,12 @@ async function startUpload({ request, env, fetchImpl, now, caller, rest }, body)
     const task = await rest(`tasks?id=eq.${taskId}&select=project_id`, { token: caller.token });
     if (task.data?.[0]?.project_id !== projectId) return refuse(404, 'Task not found.');
   }
-  const allowed = await rest(`rpc/${taskId ? 'can_edit' : 'is_owner'}`, { token: caller.token, method: 'POST', body: { p_project: projectId } });
+  const allowed = commentId
+    ? await rest('rpc/can_attach_to_comment', { token: caller.token, method: 'POST', body: { p_comment: commentId, p_task: taskId } })
+    : await rest(`rpc/${taskId ? 'can_edit' : 'is_owner'}`, { token: caller.token, method: 'POST', body: { p_project: projectId } });
   if (allowed.data !== true) {
-    return refuse(403, taskId ? 'Only editors can add files to this project.' : 'Only project admins can add reference files.');
+    return refuse(403, commentId ? 'You can only add files to your own comments.'
+      : taskId ? 'Only editors can add files to this project.' : 'Only project admins can add reference files.');
   }
 
   const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -188,7 +193,8 @@ async function startUpload({ request, env, fetchImpl, now, caller, rest }, body)
   const created = await rest('drive_uploads', {
     method: 'POST',
     prefer: 'return=representation',
-    body: rows.map((r) => ({ ...r, user_id: caller.id, project_id: projectId, task_id: taskId })),
+    // comment_id only when there is one, so task uploads work before the comment files migration.
+    body: rows.map((r) => ({ ...r, user_id: caller.id, project_id: projectId, task_id: taskId, ...(commentId ? { comment_id: commentId } : {}) })),
   });
   if (!created.ok) {
     console.error('api/files: recording the upload failed:', created.status, created.data);
@@ -196,7 +202,9 @@ async function startUpload({ request, env, fetchImpl, now, caller, rest }, body)
   }
 
   const origin = request.headers.get('origin') || new URL(request.url).origin;
-  const where = taskId ? `project ${projectId}, task ${taskId}` : `project ${projectId} (reference file)`;
+  const where = taskId
+    ? `project ${projectId}, task ${taskId}${commentId ? `, comment ${commentId}` : ''}`
+    : `project ${projectId} (reference file)`;
   try {
     const sessions = await Promise.all(created.data.map(async (u) => ({
       kind: u.kind,
@@ -283,6 +291,8 @@ async function finishUpload({ env, fetchImpl, caller, rest }, body) {
           task_id: file.task_id, project_id: file.project_id, path: `${file.project_id}/${file.task_id}/${file.id}.${ext}`,
           name, mime_type: file.mime_type, size_bytes: file.size_bytes,
           drive_file_id: body.file.drive_id, drive_thumb_id: thumbOk ? body.thumb.drive_id : null,
+          // From the upload record, not the request; the insert policy checks it's the caller's comment.
+          ...(file.comment_id ? { comment_id: file.comment_id } : {}),
         },
       }
       : {

@@ -111,12 +111,14 @@ Deno.serve(async (req) => {
     }
 
     // Files: attachments in projects being deleted, attachments they uploaded elsewhere, avatars.
-    // Only paths inside their own task's folder: the service role could delete anyone's file.
+    // Only paths inside their own task's folder (or its comments folder): the service role could
+    // delete anyone's file.
     const { data: files } = await admin.from('task_attachments').select('path, project_id, task_id')
       .or(`created_by.eq.${user.id}${solo.length ? `,project_id.in.(${solo.join(',')})` : ''}`);
     const paths = (files ?? []).map((f) => f.path).filter((path, i) => {
       const folder = `${files![i].project_id}/${files![i].task_id}/`;
-      return path.startsWith(folder) && !path.slice(folder.length).includes('/') && !path.includes('..');
+      const rest = path.slice(folder.length).replace(/^comments\//, '');
+      return path.startsWith(folder) && !rest.includes('/') && !path.includes('..');
     });
     if (paths.length) await admin.storage.from('attachments').remove(paths);
     const { data: avatars } = await admin.storage.from('avatars').list(user.id);

@@ -35,14 +35,14 @@ async function put(url, blob) {
 }
 
 /**
- * Uploads a prepared file to Drive and adds its row (task_attachments when `taskId` is given,
- * project_files otherwise). Returns the new row, or null when Drive isn't set up, in which case
+ * Uploads a prepared file to Drive and adds its row (task_attachments when `taskId` is given, on
+ * comment `commentId` if that's given too; project_files otherwise). Returns the new row, or null when Drive isn't set up, in which case
  * the caller uploads to Supabase Storage instead.
  */
-export async function uploadToDrive({ projectId, taskId = null, name, body, mime, thumb = null }) {
+export async function uploadToDrive({ projectId, taskId = null, commentId = null, name, body, mime, thumb = null }) {
   if (driveOff) return null;
   const started = await call({
-    action: 'start', project_id: projectId, task_id: taskId, name, mime, size: body.size,
+    action: 'start', project_id: projectId, task_id: taskId, comment_id: commentId, name, mime, size: body.size,
     thumb: thumb ? { mime: thumb.mime, size: thumb.blob.size } : null,
   });
   if (!started) return null;

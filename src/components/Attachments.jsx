@@ -37,7 +37,7 @@ const FILE_TYPES = {
   pptx: ['slide', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
   odp: ['slide', 'application/vnd.oasis.opendocument.presentation'],
 };
-const ACCEPT = Object.keys(FILE_TYPES).map((e) => `.${e}`).join(',');
+export const ACCEPT = Object.keys(FILE_TYPES).map((e) => `.${e}`).join(',');
 const MIME_EXT = Object.fromEntries(Object.entries(FILE_TYPES).map(([ext, [, mime]]) => [mime, ext]));
 
 export const extOf = (name = '') => (name.includes('.') ? name.split('.').pop().toLowerCase() : '');
@@ -163,21 +163,151 @@ async function withStorageUrls(rows) {
   }));
 }
 
+// Files that may be uploaded, after telling the person about any that can't.
+export function checkFiles(files, toast) {
+  const allowed = files.map((file) => ({ file, type: classify(file) })).filter((f) => f.type);
+  if (allowed.length < files.length) toast('Attach images, PDFs, documents, spreadsheets or presentations', 'error');
+  const ok = allowed.filter((f) => f.file.size > 0 && f.file.size <= inputLimit(f.type));
+  if (ok.length < allowed.length) toast('Images must be 100 MB or smaller, and other files 25 MB or smaller', 'error');
+  return ok;
+}
+
+/**
+ * Uploads one checked file ({ file, type } from checkFiles) to the task, or to one of its comments
+ * when `commentId` is given, and returns the new row with its URLs. Throws when it can't.
+ */
+export async function uploadAttachment({ file, type, task, userId, commentId = null, toast }) {
+  const { body, ext, mime } = await prepareFile(file, type);
+  const name = cleanFileName(file.name && file.name !== 'image.png' ? file.name : 'Pasted image', ext);
+  const thumb = hasThumb({ mime_type: mime }) ? await makeThumbnail(body).catch(() => null) : null;
+  // Google Drive when it's set up (the row is added with the file), else Supabase Storage.
+  let data = await uploadToDrive({ projectId: task.project_id, taskId: task.id, commentId, name, body, mime, thumb });
+  if (!data) {
+    // Comment files have their own folder: commenters may store files only there.
+    const path = `${task.project_id}/${task.id}/${commentId ? 'comments/' : ''}${crypto.randomUUID()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
+    if (upErr) throw upErr;
+    // Before the row exists, so everyone the new row reaches can load the thumbnail.
+    if (thumb) await uploadThumbnail(path, body, thumb);
+    const inserted = await supabase
+      .from('task_attachments')
+      .insert({
+        task_id: task.id, project_id: task.project_id, path, name, mime_type: mime, size_bytes: body.size, created_by: userId,
+        ...(commentId ? { comment_id: commentId } : {}),
+      })
+      .select()
+      .single();
+    if (inserted.error) {
+      await supabase.storage.from(BUCKET).remove(storedPaths({ path, mime_type: mime }));
+      throw inserted.error;
+    }
+    data = inserted.data;
+  }
+  if (file.size - body.size > 1024 * 1024) toast(`Compressed ${name} from ${formatBytes(file.size)} to ${formatBytes(body.size)}`);
+  const [withUrl] = await withUrls([data]);
+  return withUrl;
+}
+
+/** Deletes an attachment row and its stored file. Returns the error, if any. */
+export async function deleteAttachment(item) {
+  const { error } = await supabase.from('task_attachments').delete().eq('id', item.id);
+  if (error) return error;
+  if (item.drive_file_id) purgeDriveTrash();
+  else await supabase.storage.from(BUCKET).remove(storedPaths(item));
+  return null;
+}
+
+/** The image lightbox and document preview: `open(row)` shows whichever suits the file. */
+export function useFileViewer() {
+  const [viewing, setViewing] = useState(null);
+  const [previewing, setPreviewing] = useState(null);
+
+  useEffect(() => {
+    if (!viewing) return;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      e.stopImmediatePropagation();
+      setViewing(null);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [viewing]);
+
+  const open = (a) => (a.kind === 'image' ? setViewing(a) : setPreviewing(a));
+  const element = (
+    <>
+      {previewing && <FileViewer file={previewing} onClose={() => setPreviewing(null)} />}
+      {viewing && (
+        <div className="lightbox" onClick={() => setViewing(null)} role="dialog" aria-label={viewing.name}>
+          <img src={viewing.url} alt={viewing.name} onClick={(e) => e.stopPropagation()} />
+          <div className="lightbox-bar" onClick={(e) => e.stopPropagation()}>
+            <span className="grow">{viewing.name}</span>
+            <a className="btn btn-ghost" href={viewing.url} target="_blank" rel="noreferrer">Open original</a>
+            {viewing.downloadUrl && <a className="icon-btn" href={viewing.downloadUrl} aria-label="Download" title="Download"><Icon.download /></a>}
+            <button className="icon-btn" onClick={() => setViewing(null)} aria-label="Close"><Icon.x /></button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+  return { open, element };
+}
+
+/** One attachment in a grid: an image thumbnail, or a file card that previews or downloads. */
+export function FileTile({ file: a, onOpen, onRemove }) {
+  const previewable = previewKindOf(a.name);
+  return (
+    <figure className={`attachment${a.kind === 'image' ? '' : ' is-file'}`}>
+      {a.kind === 'image' ? (
+        <button className="attachment-thumb" onClick={() => onOpen(a)} aria-label={`View ${a.name}`}>
+          {a.thumbUrl ? (
+            <img src={a.thumbUrl} alt={a.name} loading="lazy"
+              onError={(e) => { if (a.url && e.currentTarget.src !== a.url) e.currentTarget.src = a.url; }} />
+          ) : <span className="muted small">Unavailable</span>}
+        </button>
+      ) : (
+        <a className="attachment-file" title={previewable ? `Preview ${a.name}` : `Download ${a.name}`}
+          href={(previewable ? a.url : a.downloadUrl) || undefined}
+          onClick={(e) => {
+            if (!previewable || !a.url) return;
+            e.preventDefault();
+            onOpen(a);
+          }}>
+          <span className={`file-badge file-${a.kind}`}>{extOf(a.name) || 'file'}</span>
+          <span className="file-name">{a.name}</span>
+          <span className="hint">{formatBytes(a.size_bytes)}{previewable ? '' : ' · download'}</span>
+        </a>
+      )}
+      <div className="attachment-actions reveal">
+        {a.downloadUrl && (
+          <a className="icon-btn" href={a.downloadUrl} aria-label={`Download ${a.name}`} title="Download"><Icon.download /></a>
+        )}
+        {onRemove && (
+          <button className="icon-btn" onClick={() => onRemove(a)} aria-label={`Remove ${a.name}`} title="Remove">
+            <Icon.x />
+          </button>
+        )}
+      </div>
+    </figure>
+  );
+}
+
+// The task's own files. Files added with a comment are listed under that comment instead.
 // canEdit: editors and project admins may add files and remove their own; admins (canManageAll) remove any.
 const Attachments = forwardRef(function Attachments({ task, userId, canManageAll, canEdit = true }, ref) {
   const toast = useToast();
   const [items, setItems] = useState([]);
   const [uploading, setUploading] = useState(0);
-  const [viewing, setViewing] = useState(null);
-  const [previewing, setPreviewing] = useState(null);
   const inputRef = useRef(null);
   const cleanup = useFileCleanup();
+  const viewer = useFileViewer();
 
   useEffect(() => {
     let alive = true;
     (async () => {
       const { data } = await supabase.from('task_attachments').select('*').eq('task_id', task.id).order('created_at');
-      const rows = await withUrls(data || []);
+      // Filtered here rather than in the query, so the list still loads before the comment files migration.
+      const rows = await withUrls((data || []).filter((r) => !r.comment_id));
       if (alive) setItems(rows);
     })();
 
@@ -185,6 +315,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
       .channel(`attachments-${task.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'task_attachments', filter: `task_id=eq.${task.id}` },
         async ({ new: row }) => {
+          if (row.comment_id) return;
           const [withUrl] = await withUrls([row]);
           setItems((list) => (list.some((x) => x.id === row.id) ? list : [...list, withUrl]));
         })
@@ -199,40 +330,13 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
   }, [task.id]);
 
   const upload = async (files) => {
-    const allowed = files.map((file) => ({ file, type: classify(file) })).filter((f) => f.type);
-    if (allowed.length < files.length) toast('Attach images, PDFs, documents, spreadsheets or presentations', 'error');
-    const ok = allowed.filter((f) => f.file.size > 0 && f.file.size <= inputLimit(f.type));
-    if (ok.length < allowed.length) toast('Images must be 100 MB or smaller, and other files 25 MB or smaller', 'error');
+    const ok = checkFiles(files, toast);
     if (!ok.length) return;
-
     setUploading((n) => n + ok.length);
     await Promise.all(ok.map(async ({ file, type }) => {
       try {
-        const { body, ext, mime } = await prepareFile(file, type);
-        const name = cleanFileName(file.name && file.name !== 'image.png' ? file.name : 'Pasted image', ext);
-        const thumb = hasThumb({ mime_type: mime }) ? await makeThumbnail(body).catch(() => null) : null;
-        // Google Drive when it's set up (the row is added with the file), else Supabase Storage.
-        let data = await uploadToDrive({ projectId: task.project_id, taskId: task.id, name, body, mime, thumb });
-        if (!data) {
-          const path = `${task.project_id}/${task.id}/${crypto.randomUUID()}.${ext}`;
-          const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
-          if (upErr) throw upErr;
-          // Before the row exists, so everyone the new row reaches can load the thumbnail.
-          if (thumb) await uploadThumbnail(path, body, thumb);
-          const inserted = await supabase
-            .from('task_attachments')
-            .insert({ task_id: task.id, project_id: task.project_id, path, name, mime_type: mime, size_bytes: body.size, created_by: userId })
-            .select()
-            .single();
-          if (inserted.error) {
-            await supabase.storage.from(BUCKET).remove(storedPaths({ path, mime_type: mime }));
-            throw inserted.error;
-          }
-          data = inserted.data;
-        }
-        if (file.size - body.size > 1024 * 1024) toast(`Compressed ${name} from ${formatBytes(file.size)} to ${formatBytes(body.size)}`);
-        const [withUrl] = await withUrls([data]);
-        setItems((list) => (list.some((x) => x.id === data.id) ? list : [...list, withUrl]));
+        const row = await uploadAttachment({ file, type, task, userId, toast });
+        setItems((list) => (list.some((x) => x.id === row.id) ? list : [...list, row]));
       } catch (err) {
         toast(`Could not upload ${file.name || 'file'}: ${err.message}`, 'error');
       } finally {
@@ -244,10 +348,12 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
   // The task panel forwards files dropped anywhere on it.
   useImperativeHandle(ref, () => ({ upload }));
 
-  // Paste a screenshot or copied files anywhere in the panel. Text pastes are left alone.
+  // Paste a screenshot or copied files anywhere in the panel. Text pastes are left alone, and so
+  // are pastes the comment box has already taken for its comment.
   useEffect(() => {
     if (!canEdit) return undefined;
     const onPaste = (e) => {
+      if (e.defaultPrevented) return;
       const files = [...(e.clipboardData?.files || [])];
       if (!files.length) return;
       e.preventDefault();
@@ -257,26 +363,13 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
     return () => window.removeEventListener('paste', onPaste);
   });
 
-  useEffect(() => {
-    if (!viewing) return;
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      e.stopImmediatePropagation();
-      setViewing(null);
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [viewing]);
-
   const remove = async (item) => {
     setItems((list) => list.filter((x) => x.id !== item.id));
-    const { error } = await supabase.from('task_attachments').delete().eq('id', item.id);
+    const error = await deleteAttachment(item);
     if (error) {
       setItems((list) => [...list, item]);
-      return toast(error.message, 'error');
+      toast(error.message, 'error');
     }
-    if (item.drive_file_id) purgeDriveTrash();
-    else await supabase.storage.from(BUCKET).remove(storedPaths(item));
   };
 
   return (
@@ -291,38 +384,8 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
       )}
       <div className="attachments">
         {items.map((a) => (
-          <figure key={a.id} className={`attachment${a.kind === 'image' ? '' : ' is-file'}`}>
-            {a.kind === 'image' ? (
-              <button className="attachment-thumb" onClick={() => setViewing(a)} aria-label={`View ${a.name}`}>
-                {a.thumbUrl ? (
-                  <img src={a.thumbUrl} alt={a.name} loading="lazy"
-                    onError={(e) => { if (a.url && e.currentTarget.src !== a.url) e.currentTarget.src = a.url; }} />
-                ) : <span className="muted small">Unavailable</span>}
-              </button>
-            ) : (
-              <a className="attachment-file" title={previewKindOf(a.name) ? `Preview ${a.name}` : `Download ${a.name}`}
-                href={(previewKindOf(a.name) ? a.url : a.downloadUrl) || undefined}
-                onClick={(e) => {
-                  if (!previewKindOf(a.name) || !a.url) return;
-                  e.preventDefault();
-                  setPreviewing(a);
-                }}>
-                <span className={`file-badge file-${a.kind}`}>{extOf(a.name) || 'file'}</span>
-                <span className="file-name">{a.name}</span>
-                <span className="hint">{formatBytes(a.size_bytes)}{previewKindOf(a.name) ? '' : ' · download'}</span>
-              </a>
-            )}
-            <div className="attachment-actions reveal">
-              {a.downloadUrl && (
-                <a className="icon-btn" href={a.downloadUrl} aria-label={`Download ${a.name}`} title="Download"><Icon.download /></a>
-              )}
-              {((canEdit && a.created_by === userId) || canManageAll) && (
-                <button className="icon-btn" onClick={() => remove(a)} aria-label={`Remove ${a.name}`} title="Remove">
-                  <Icon.x />
-                </button>
-              )}
-            </div>
-          </figure>
+          <FileTile key={a.id} file={a} onOpen={viewer.open}
+            onRemove={(canEdit && a.created_by === userId) || canManageAll ? remove : undefined} />
         ))}
         {Array.from({ length: uploading }, (_, i) => <div key={`up-${i}`} className="attachment attachment-pending" aria-label="Uploading" />)}
         {canEdit && (
@@ -346,19 +409,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
         />
       </div>
 
-      {previewing && <FileViewer file={previewing} onClose={() => setPreviewing(null)} />}
-
-      {viewing && (
-        <div className="lightbox" onClick={() => setViewing(null)} role="dialog" aria-label={viewing.name}>
-          <img src={viewing.url} alt={viewing.name} onClick={(e) => e.stopPropagation()} />
-          <div className="lightbox-bar" onClick={(e) => e.stopPropagation()}>
-            <span className="grow">{viewing.name}</span>
-            <a className="btn btn-ghost" href={viewing.url} target="_blank" rel="noreferrer">Open original</a>
-            {viewing.downloadUrl && <a className="icon-btn" href={viewing.downloadUrl} aria-label="Download" title="Download"><Icon.download /></a>}
-            <button className="icon-btn" onClick={() => setViewing(null)} aria-label="Close"><Icon.x /></button>
-          </div>
-        </div>
-      )}
+      {viewer.element}
     </>
   );
 });
