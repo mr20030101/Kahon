@@ -16,6 +16,7 @@ import ProjectDetails, { StatusPill } from '../components/ProjectDetails';
 import { formatDue } from '../lib/dates';
 import { canComment, canEdit } from '../lib/roles';
 import TaskPanel from '../components/TaskPanel';
+import TimeReport, { TimeSummaryButton, useProjectTime } from '../components/TimeReport';
 import { Avatar, EditableText, Icon } from '../components/ui';
 import { confirmDialog } from '../lib/dialog';
 
@@ -33,6 +34,10 @@ export default function ProjectPage() {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [showLabels, setShowLabels] = useState(false);
   const [showFields, setShowFields] = useState(false);
+  const [showTime, setShowTime] = useState(false);
+  // Hours rendered on the project, for its project admins only.
+  const amAdmin = data.members?.some((m) => m.user_id === user.id && m.role === 'owner') ?? false;
+  const time = useProjectTime(projectId, amAdmin);
 
   useEffect(() => setFilters(EMPTY_FILTERS), [projectId]);
 
@@ -153,6 +158,7 @@ export default function ProjectPage() {
                 <div className="progress-track"><div className="progress-fill" style={{ width: total ? `${(doneTasks / total) * 100}%` : 0, background: project.color }} /></div>
                 <span className="muted small">{doneTasks} of {total} done</span>
               </div>
+              {isOwner && <TimeSummaryButton entries={time.entries} onClick={() => setShowTime(true)} />}
               {(project.start_date || project.due_date) && (
                 <span className="muted small">
                   {project.start_date ? formatDue(project.start_date) : '…'} – {project.due_date ? formatDue(project.due_date) : '…'}
@@ -210,6 +216,11 @@ export default function ProjectPage() {
                 <button className="menu-item" onClick={() => { setShowMenu(false); setShowDetails(true); }}>
                   <Icon.info /> About this project
                 </button>
+                {isOwner && (
+                  <button className="menu-item" onClick={() => { setShowMenu(false); setShowTime(true); }}>
+                    <Icon.stopwatch /> Time report
+                  </button>
+                )}
                 {!readOnly && (
                   <button className="menu-item" onClick={() => { setShowMenu(false); setShowLabels(true); }}>
                     <Icon.tag /> Labels
@@ -278,6 +289,11 @@ export default function ProjectPage() {
       )}
       {showFields && (
         <FieldsModal fields={data.fields} fieldValues={data.fieldValues} actions={actions} onClose={() => setShowFields(false)} />
+      )}
+      {showTime && isOwner && (
+        <TimeReport project={project} tasks={tasks} members={members} entries={time.entries} error={time.error}
+          onReload={time.reload} onClose={() => setShowTime(false)}
+          onOpenTask={(id) => { setShowTime(false); open(id); }} />
       )}
       {showDetails && (
         <ProjectDetails project={project} isOwner={isOwner} onClose={() => setShowDetails(false)}

@@ -1344,6 +1344,31 @@ kbd { padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; backg
 .timer-add .input { height: 32px; font-size: 13px; }
 .timer-add .timer-note { grid-column: 1 / -1; }
 .timer-add .btn { grid-column: 1 / -1; justify-self: end; }
+
+/* Project admins' time report (TimeReport.jsx) */
+.time-summary { display: inline-flex; align-items: center; gap: 5px; padding: 0; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.time-summary svg { color: var(--primary); }
+.time-summary:hover { color: var(--primary); text-decoration: underline; }
+.time-report { display: grid; gap: 14px; }
+.time-report-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.time-report-bar .input { width: auto; height: 34px; }
+.time-report-total { display: grid; gap: 2px; }
+.time-report-total strong { font-size: 28px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.time-report-error { color: var(--danger); margin: 0; }
+.time-report .seg { justify-self: start; }
+.time-report-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 50vh; overflow-y: auto; }
+.time-report-rows li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) auto; align-items: center; gap: 12px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.time-report-who { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; }
+.time-report-task { text-align: left; padding: 0; color: var(--ink); }
+.time-report-task:hover .truncate { color: var(--primary); text-decoration: underline; }
+.time-report-avatars { display: inline-flex; gap: 2px; flex-shrink: 0; margin-left: auto; }
+.time-report-meter { height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.time-report-meter span { display: block; height: 100%; border-radius: 99px; }
+.time-report-hours { display: grid; justify-items: end; font-size: 13px; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+  .time-report-rows li { grid-template-columns: minmax(0, 1fr) auto; }
+  .time-report-meter { display: none; }
+}
 .timer-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); animation: pulse 1s ease-in-out infinite alternate; flex: none; }
 @media (prefers-reduced-motion: reduce) { .timer-dot { animation: none; } }
 .floating-timer {
