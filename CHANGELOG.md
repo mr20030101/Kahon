@@ -14,6 +14,10 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Time report for project admins: the project header shows the hours logged on the project, and clicking it (or **⋯** → **Time report**) breaks them down by person and by task for this week, last week, this month, last month or all time, in hours and minutes and decimal hours. **Export CSV** downloads every entry in the range (date, person, task, hours, note). Running timers count up to now. Only project admins see it. No database changes needed.
+
 ## 1.11.0 — 2026-11-04
 
 ### Added
