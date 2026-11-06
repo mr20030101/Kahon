@@ -14,6 +14,7 @@ export default function MfaChallenge() {
 
   const verify = async (e) => {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError('');
     const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
@@ -40,7 +41,7 @@ export default function MfaChallenge() {
               required autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
           </label>
           {error && <p className="form-error">{error}</p>}
-          <button className="btn btn-primary btn-wide" disabled={busy || code.length !== 6}>{busy ? 'Checking…' : 'Verify'}</button>
+          <button className="btn btn-primary btn-wide" aria-busy={busy}>{busy ? 'Checking…' : 'Verify'}</button>
         </form>
         <p className="muted switch">Not you? <button className="link-btn" onClick={signOut}>Sign out</button></p>
         <Footer className="auth-footer" />

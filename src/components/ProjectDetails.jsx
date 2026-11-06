@@ -127,6 +127,7 @@ function DetailsForm({ project, onSave, onCancel }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setError('');
     if (form.start_date && form.due_date && form.due_date < form.start_date) {
       return setError('The due date must be on or after the start date.');
@@ -197,7 +198,7 @@ function DetailsForm({ project, onSave, onCancel }) {
 
       {error && <p className="form-error">{error}</p>}
       <div className="settings-actions">
-        <button className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save details'}</button>
+        <button className="btn btn-primary" aria-busy={saving}>{saving ? 'Saving…' : 'Save details'}</button>
         <button type="button" className="link-btn" onClick={onCancel}>Cancel</button>
       </div>
     </form>

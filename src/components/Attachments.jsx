@@ -6,6 +6,7 @@ import FileViewer, { previewKindOf } from './FileViewer';
 import { FILE_CLEANUP_DAYS, cleanupDate, useFileCleanup } from '../hooks/useFileCleanup';
 import { purgeDriveTrash, signDriveUrls, uploadToDrive } from '../lib/drive';
 import { confirmDialog } from '../lib/dialog';
+import { UploadTile, useUploadQueue } from './UploadQueue';
 import {
   CACHE_FOREVER, MAX_IMAGE_INPUT_BYTES, cleanFileName, hasValidSignature, makeThumbnail, processImage, thumbPathOf,
 } from '../lib/uploads';
@@ -177,12 +178,12 @@ export function checkFiles(files, toast) {
  * Uploads one checked file ({ file, type } from checkFiles) to the task, or to one of its comments
  * when `commentId` is given, and returns the new row with its URLs. Throws when it can't.
  */
-export async function uploadAttachment({ file, type, task, userId, commentId = null, toast }) {
+export async function uploadAttachment({ file, type, task, userId, commentId = null, toast, onProgress }) {
   const { body, ext, mime } = await prepareFile(file, type);
   const name = cleanFileName(file.name && file.name !== 'image.png' ? file.name : 'Pasted image', ext);
   const thumb = hasThumb({ mime_type: mime }) ? await makeThumbnail(body).catch(() => null) : null;
   // Google Drive when it's set up (the row is added with the file), else Supabase Storage.
-  let data = await uploadToDrive({ projectId: task.project_id, taskId: task.id, commentId, name, body, mime, thumb });
+  let data = await uploadToDrive({ projectId: task.project_id, taskId: task.id, commentId, name, body, mime, thumb, onProgress });
   if (!data) {
     // Comment files have their own folder: commenters may store files only there.
     const path = `${task.project_id}/${task.id}/${commentId ? 'comments/' : ''}${crypto.randomUUID()}.${ext}`;
@@ -254,16 +255,6 @@ export function useFileViewer() {
   return { open, element };
 }
 
-/** A file on its way up: a spinner where its tile will be. */
-export function UploadingTile() {
-  return (
-    <div className="attachment attachment-pending" role="status">
-      <span className="spinner" aria-hidden="true" />
-      <span className="hint">Uploading…</span>
-    </div>
-  );
-}
-
 /** One attachment in a grid: an image thumbnail, or a file card that previews or downloads. */
 export function FileTile({ file: a, onOpen, onRemove }) {
   const previewable = previewKindOf(a.name);
@@ -317,8 +308,8 @@ export function FileTile({ file: a, onOpen, onRemove }) {
 const Attachments = forwardRef(function Attachments({ task, userId, canManageAll, canEdit = true }, ref) {
   const toast = useToast();
   const [items, setItems] = useState([]);
-  const [uploading, setUploading] = useState(0);
   const inputRef = useRef(null);
+  const queue = useUploadQueue((row) => setItems((list) => (list.some((x) => x.id === row.id) ? list : [...list, row])));
   const cleanup = useFileCleanup();
   const viewer = useFileViewer();
 
@@ -352,17 +343,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
   const upload = async (files) => {
     const ok = checkFiles(files, toast);
     if (!ok.length) return;
-    setUploading((n) => n + ok.length);
-    await Promise.all(ok.map(async ({ file, type }) => {
-      try {
-        const row = await uploadAttachment({ file, type, task, userId, toast });
-        setItems((list) => (list.some((x) => x.id === row.id) ? list : [...list, row]));
-      } catch (err) {
-        toast(`Could not upload ${file.name || 'file'}: ${err.message}`, 'error');
-      } finally {
-        setUploading((n) => n - 1);
-      }
-    }));
+    queue.add(ok, ({ file, type }, onProgress) => uploadAttachment({ file, type, task, userId, toast, onProgress }));
   };
 
   // The task panel forwards files dropped anywhere on it.
@@ -414,7 +395,7 @@ const Attachments = forwardRef(function Attachments({ task, userId, canManageAll
           <FileTile key={a.id} file={a} onOpen={viewer.open}
             onRemove={(canEdit && a.created_by === userId) || canManageAll ? remove : undefined} />
         ))}
-        {Array.from({ length: uploading }, (_, i) => <UploadingTile key={`up-${i}`} />)}
+        {queue.items().map((u) => <UploadTile key={u.key} item={u} onRetry={queue.retry} onDismiss={queue.dismiss} />)}
         {canEdit && (
           <button className="attachment-add" onClick={() => inputRef.current?.click()}>
             <Icon.paperclip />

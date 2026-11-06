@@ -32,10 +32,10 @@ export default function LabelsModal({ labels, taskLabels, actions, onClose }) {
   return (
     <Modal title="Labels" onClose={onClose} width={520}>
       <form className="label-create" onSubmit={create}>
-        <input className="input" placeholder="New label, e.g. Bug, Design, Client" maxLength={40} value={name}
+        <input className="input" required placeholder="New label, e.g. Bug, Design, Client" maxLength={40} value={name}
           onChange={(e) => setName(e.target.value)} aria-label="Label name" />
         <ColorPick value={color} onChange={setColor} />
-        <button className="btn btn-primary" disabled={!name.trim()}>Add</button>
+        <button className="btn btn-primary">Add</button>
       </form>
       {labels.length === 0 && <p className="muted small">No labels yet. Labels help you sort and filter tasks.</p>}
       <ul className="label-list">

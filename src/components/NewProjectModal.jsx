@@ -15,7 +15,7 @@ export default function NewProjectModal({ onClose }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (saving || !name.trim()) return;
     setSaving(true);
     setError('');
     const { data, error: err } = await supabase.rpc('create_project', { p_workspace: current?.id, p_name: name.trim(), p_color: color });
@@ -34,7 +34,7 @@ export default function NewProjectModal({ onClose }) {
       <form onSubmit={submit} className="stack">
         <label className="label">
           Project name
-          <input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Website relaunch" maxLength={120} />
+          <input className="input" required autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Website relaunch" maxLength={120} />
         </label>
         <fieldset className="label">
           <legend>Color</legend>
@@ -49,7 +49,7 @@ export default function NewProjectModal({ onClose }) {
         {error && <p className="form-error">{error}</p>}
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" disabled={saving || !name.trim()}>{saving ? 'Creating…' : 'Create project'}</button>
+          <button className="btn btn-primary" aria-busy={saving}>{saving ? 'Creating…' : 'Create project'}</button>
         </div>
       </form>
     </Modal>

@@ -31,8 +31,11 @@ function Composer({ members, onPost, placeholder, submitLabel = 'Comment', onCan
   const submit = async () => {
     const body = (ref.current?.getValue() ?? '').trim().slice(0, 5000);
     // Files waiting in the box go up with it, so a comment can be just a screenshot.
+    if (!body && !pending.items.length) {
+      ref.current?.focus();
+      return;
+    }
     const files = pending.take();
-    if (!body && !files.length) return;
     ref.current?.clear();
     setText('');
     if (await onPost(body, files)) pending.done(files);
@@ -48,8 +51,7 @@ function Composer({ members, onPost, placeholder, submitLabel = 'Comment', onCan
           <div className="comment-actions">
             <span className="hint">Paste or drop images · Ctrl + Enter</span>
             {onCancel && <button type="button" className="link-btn" onClick={onCancel}>Cancel</button>}
-            <button type="button" className="btn btn-primary btn-small" onClick={submit}
-              disabled={!text.trim() && !pending.items.length}>{submitLabel}</button>
+            <button type="button" className="btn btn-primary btn-small" onClick={submit}>{submitLabel}</button>
           </div>
         )} />
     </div>
@@ -296,7 +298,8 @@ const Comments = forwardRef(function Comments({ task, members, userId, commentab
           ) : (
             c.body && <RichText text={c.body} className="comment-text" />
           )}
-          <CommentFileList files={files.of(c.id)} uploading={files.uploadingFor(c.id)} onOpen={viewer.open} canRemove={canRemoveFile} />
+          <CommentFileList files={files.of(c.id)} uploads={files.uploadsFor(c.id)} onRetry={files.retryUpload} onDismiss={files.dismissUpload}
+            onOpen={viewer.open} canRemove={canRemoveFile} />
           {renderReactions(c)}
         </div>
 

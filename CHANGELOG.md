@@ -14,6 +14,17 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Changed
+
+- Uploads show what's happening. Each file being added to a task, a comment or a project's reference files gets its own tile with a preview (or file type), its size, and a progress bar with the percent done and roughly how long is left. If one fails it stays there with **Retry**, so you don't have to pick the file again, and the other files carry on.
+- Buttons like **Create project**, **Add** or **Save changes** no longer grey out until a form is filled in. Press them any time: an empty required field turns red, says what's missing and gets the cursor. While something is saving, the button shows a spinner instead of fading.
+- On phones and tablets, buttons and icons are easier to tap (at least 44px), and the task checkbox no longer shows a faint tick after the first tap.
+- The page behind an open dialog no longer scrolls. Checkbox and pop-in animations are quicker and no longer bounce.
+
+### Fixed
+
+- Removing a project reference file now asks first, like other file removals.
+
 ## 1.11.0 — 2026-11-04
 
 ### Added

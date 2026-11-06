@@ -65,6 +65,7 @@ export default function TaskTimer({ task, members, userId, editable, isOwner }) 
 
   const addTime = async (e) => {
     e.preventDefault();
+    if (saving) return;
     const seconds = parseDuration(form.duration);
     if (!seconds) return toast('Write the time like 1h 30m, 90m or 1:30', 'error');
     if (seconds > DAY) return toast('One entry can be at most 24 hours', 'error');
@@ -140,7 +141,7 @@ export default function TaskTimer({ task, members, userId, editable, isOwner }) 
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
               <input className="input timer-note" value={form.note} maxLength={200} placeholder="What you did (optional)" aria-label="Note"
                 onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
-              <button className="btn btn-primary btn-small" disabled={saving}>Add time</button>
+              <button className="btn btn-primary btn-small" aria-busy={saving}>Add time</button>
             </form>
           )}
         </Popover>
