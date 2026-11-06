@@ -226,6 +226,7 @@ export function MoveTaskModal({ task, onClose, onMoved }) {
   }, [projectId]);
 
   const move = async () => {
+    if (busy || !sectionId) return;
     setBusy(true);
     try {
       // Attachment files in storage are under the project's folder, so they move first. Files in
@@ -272,7 +273,7 @@ export function MoveTaskModal({ task, onClose, onMoved }) {
             assigned who isn't in that project is unassigned.
           </p>
           <div className="settings-actions">
-            <button className="btn btn-primary" onClick={move} disabled={busy || !sectionId}>{busy ? 'Moving…' : 'Move task'}</button>
+            <button className="btn btn-primary" onClick={move} aria-busy={busy}>{busy ? 'Moving…' : 'Move task'}</button>
             <button className="link-btn" onClick={onClose}>Cancel</button>
           </div>
         </div>

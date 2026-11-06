@@ -57,7 +57,7 @@ vi.mock('../../lib/notify', () => ({ notify: vi.fn(), notifyTaskUpdate: vi.fn() 
 vi.mock('../../context/ToastContext', () => ({ useToast: () => vi.fn() }));
 vi.mock('../Attachments', () => ({ checkFiles: (f) => f, useFileViewer: () => ({ open: () => {}, element: null }) }));
 vi.mock('../CommentFiles', () => ({
-  useCommentFiles: () => ({ of: () => [], uploadingFor: () => 0, upload: vi.fn(), remove: vi.fn(), clearDeleted: vi.fn() }),
+  useCommentFiles: () => ({ of: () => [], uploadsFor: () => [], retryUpload: vi.fn(), dismissUpload: vi.fn(), upload: vi.fn(), remove: vi.fn(), clearDeleted: vi.fn() }),
   CommentFileList: () => null,
   PendingFiles: () => null,
   useFileTarget: () => [{}, false],

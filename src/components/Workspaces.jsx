@@ -109,7 +109,7 @@ export function NewWorkspaceModal({ onClose }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (saving || !name.trim()) return;
     setSaving(true);
     setError('');
     const { data, error: err } = await supabase.rpc('create_workspace', { p_name: name.trim(), p_color: color });
@@ -129,7 +129,7 @@ export function NewWorkspaceModal({ onClose }) {
       <form onSubmit={submit} className="stack">
         <label className="label">
           Company or team name
-          <input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Inc." maxLength={80} />
+          <input className="input" required autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Inc." maxLength={80} />
         </label>
         <fieldset className="label">
           <legend>Color</legend>
@@ -144,7 +144,7 @@ export function NewWorkspaceModal({ onClose }) {
         {error && <p className="form-error">{error}</p>}
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" disabled={saving || !name.trim()}>{saving ? 'Creating…' : 'Create workspace'}</button>
+          <button className="btn btn-primary" aria-busy={saving}>{saving ? 'Creating…' : 'Create workspace'}</button>
         </div>
       </form>
     </Modal>
@@ -192,7 +192,7 @@ export function WorkspaceSettingsModal({ workspace, onClose }) {
 
   const invite = async (e) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (busy || !email.trim()) return;
     setBusy(true);
     setError('');
     const { data, error: err } = await supabase.rpc('invite_to_workspace', { p_workspace: workspace.id, p_email: email.trim(), p_role: role });
@@ -258,8 +258,8 @@ export function WorkspaceSettingsModal({ workspace, onClose }) {
     <Modal title="Workspace settings" onClose={onClose} width={540}>
       {admin ? (
         <form onSubmit={rename} className="invite-row">
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Workspace name" />
-          <button className="btn btn-ghost" disabled={!name.trim() || name.trim() === workspace.name}>Rename</button>
+          <input className="input" required value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Workspace name" />
+          <button className="btn btn-ghost">Rename</button>
         </form>
       ) : (
         <p className="ws-title"><WorkspaceTile workspace={workspace} /> <strong>{workspace.name}</strong></p>
@@ -277,7 +277,7 @@ export function WorkspaceSettingsModal({ workspace, onClose }) {
                 {WS_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </label>
-            <button className="btn btn-primary" disabled={busy || !email.trim()}>{busy ? 'Inviting…' : 'Invite'}</button>
+            <button className="btn btn-primary" aria-busy={busy}>{busy ? 'Inviting…' : 'Invite'}</button>
           </form>
           {error && <p className="form-error">{error}</p>}
           <p className="muted small">People join once they accept the invitation. Admins invite people and create projects; members work in the projects they're added to.</p>
@@ -385,6 +385,7 @@ export function WorkspaceInvitations() {
   if (!invitations.length) return null;
 
   const answer = async (invite, accept) => {
+    if (busy) return;
     setBusy(invite.id);
     const error = await respond(invite, accept);
     setBusy(null);
@@ -398,8 +399,8 @@ export function WorkspaceInvitations() {
         <li key={i.id}>
           <p><strong>{i.invited_by_name || 'Someone'}</strong> invited you to <strong>{i.workspace_name}</strong></p>
           <span className="ws-invite-actions">
-            <button type="button" className="btn btn-primary btn-small" disabled={busy === i.id} onClick={() => answer(i, true)}>Join</button>
-            <button type="button" className="btn btn-ghost btn-small on-dark" disabled={busy === i.id} onClick={() => answer(i, false)}>Decline</button>
+            <button type="button" className="btn btn-primary btn-small" aria-busy={busy === i.id} onClick={() => answer(i, true)}>Join</button>
+            <button type="button" className="btn btn-ghost btn-small on-dark" onClick={() => answer(i, false)}>Decline</button>
           </span>
         </li>
       ))}

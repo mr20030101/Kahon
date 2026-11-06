@@ -25,6 +25,7 @@ export default function AdminSecurity() {
   // Logged first (the database also checks the account is still unconfirmed), then sent
   // through Supabase Auth, which rate-limits resends on its own.
   const resend = async (u) => {
+    if (busy) return;
     const ok = await confirmDialog({ title: `Resend the confirmation email to ${u.email}?`, text: 'They get a new link to confirm their address. This is recorded in Recent admin actions.', confirmText: 'Resend' });
     if (!ok) return;
     setBusy(u.id);
@@ -75,7 +76,7 @@ export default function AdminSecurity() {
                 <li key={u.id}>
                   <PersonCell p={u} />
                   <span className="muted small">Signed up {dateLabel(u.created_at)}</span>
-                  <button type="button" className="btn btn-ghost btn-small" disabled={busy === u.id} onClick={() => resend(u)}>
+                  <button type="button" className="btn btn-ghost btn-small" aria-busy={busy === u.id} onClick={() => resend(u)}>
                     {busy === u.id ? 'Sending…' : 'Resend confirmation'}
                   </button>
                 </li>

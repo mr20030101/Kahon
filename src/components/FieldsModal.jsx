@@ -44,12 +44,12 @@ export default function FieldsModal({ fields, fieldValues, actions, onClose }) {
     <Modal title="Custom fields" onClose={onClose} width={580}>
       <p className="muted small">Fields every task in this project can have, shown in the task panel and usable as filters.</p>
       <form className="field-create" onSubmit={create}>
-        <input className="input" placeholder="New field, e.g. Task type, Reporter, Site" maxLength={40} value={name}
+        <input className="input" required placeholder="New field, e.g. Task type, Reporter, Site" maxLength={40} value={name}
           onChange={(e) => setName(e.target.value)} aria-label="Field name" />
         <select className="input" value={type} onChange={(e) => setType(e.target.value)} aria-label="Field type">
           {FIELD_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <button className="btn btn-primary" disabled={!name.trim()}>Add</button>
+        <button className="btn btn-primary">Add</button>
       </form>
       <p className="hint">{FIELD_TYPES.find(([t]) => t === type)?.[2]}</p>
 

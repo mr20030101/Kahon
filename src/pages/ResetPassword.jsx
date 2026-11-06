@@ -15,6 +15,7 @@ export default function ResetPassword() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (busy) return;
     setError('');
     if (password.length < 8) return setError('Use at least 8 characters.');
     if (password !== confirm) return setError("The passwords don't match.");
@@ -41,7 +42,7 @@ export default function ResetPassword() {
               value={confirm} onChange={(e) => setConfirm(e.target.value)} />
           </label>
           {error && <p className="form-error">{error}</p>}
-          <button className="btn btn-primary btn-wide" disabled={busy}>{busy ? 'Saving…' : 'Save new password'}</button>
+          <button className="btn btn-primary btn-wide" aria-busy={busy}>{busy ? 'Saving…' : 'Save new password'}</button>
         </form>
         <Footer className="auth-footer" />
       </div>

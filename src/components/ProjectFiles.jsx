@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { CACHE_FOREVER, cleanFileName } from '../lib/uploads';
 import { purgeDriveTrash, uploadToDrive } from '../lib/drive';
+import { confirmDialog } from '../lib/dialog';
+import { UploadTile, useUploadQueue } from './UploadQueue';
 import { classify, extOf, formatBytes, prepareFile, withUrls } from './Attachments';
 import FileViewer, { previewKindOf } from './FileViewer';
 import { Icon } from './ui';
@@ -21,7 +23,8 @@ const ACCEPT = PROJECT_FILE_TYPES.map((e) => `.${e}`).join(',');
 export default function ProjectFiles({ projectId, isOwner }) {
   const toast = useToast();
   const [items, setItems] = useState(null);
-  const [uploading, setUploading] = useState(0);
+  const queue = useUploadQueue((row) => setItems((list) => (list?.some((x) => x.id === row.id) ? list : [...(list || []), row])));
+  const uploading = queue.items().length;
   const [previewing, setPreviewing] = useState(null);
   const inputRef = useRef(null);
 
@@ -61,37 +64,37 @@ export default function ProjectFiles({ projectId, isOwner }) {
     const ok = allowed.slice(0, Math.max(room, 0)).filter((f) => f.file.size > 0 && f.file.size <= MAX_BYTES);
     if (!ok.length) return;
 
-    setUploading((n) => n + ok.length);
-    await Promise.all(ok.map(async ({ file, type }) => {
-      try {
-        const { body, ext, mime } = await prepareFile(file, type);
-        const name = cleanFileName(file.name, ext);
-        // Google Drive when it's set up (the row is added with the file), else Supabase Storage.
-        let data = await uploadToDrive({ projectId, name, body, mime });
-        if (!data) {
-          const path = `${projectId}/project/${crypto.randomUUID()}.${ext}`;
-          const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
-          if (upErr) throw upErr;
-          const inserted = await supabase.from('project_files')
-            .insert({ project_id: projectId, path, name, mime_type: mime, size_bytes: body.size })
-            .select().single();
-          if (inserted.error) {
-            await supabase.storage.from(BUCKET).remove([path]);
-            throw inserted.error;
-          }
-          data = inserted.data;
+    queue.add(ok, async ({ file, type }, onProgress) => {
+      const { body, ext, mime } = await prepareFile(file, type);
+      const name = cleanFileName(file.name, ext);
+      // Google Drive when it's set up (the row is added with the file), else Supabase Storage.
+      let data = await uploadToDrive({ projectId, name, body, mime, onProgress });
+      if (!data) {
+        const path = `${projectId}/project/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, cacheControl: CACHE_FOREVER });
+        if (upErr) throw upErr;
+        const inserted = await supabase.from('project_files')
+          .insert({ project_id: projectId, path, name, mime_type: mime, size_bytes: body.size })
+          .select().single();
+        if (inserted.error) {
+          await supabase.storage.from(BUCKET).remove([path]);
+          throw inserted.error;
         }
-        const [withUrl] = await withUrls([data], 'project_files');
-        setItems((list) => (list?.some((x) => x.id === data.id) ? list : [...(list || []), withUrl]));
-      } catch (err) {
-        toast(`Could not upload ${file.name}: ${err.message}`, 'error');
-      } finally {
-        setUploading((n) => n - 1);
+        data = inserted.data;
       }
-    }));
+      const [withUrl] = await withUrls([data], 'project_files');
+      return withUrl;
+    });
   };
 
   const remove = async (item) => {
+    const ok = await confirmDialog({
+      title: `Remove ${item.name}?`,
+      text: "Ask AI stops reading it on this project's tasks, and it's deleted for everyone. This can't be undone.",
+      confirmText: 'Remove file',
+      danger: true,
+    });
+    if (!ok) return;
     setItems((list) => list.filter((x) => x.id !== item.id));
     const { error } = await supabase.from('project_files').delete().eq('id', item.id);
     if (error) {
@@ -133,7 +136,7 @@ export default function ProjectFiles({ projectId, isOwner }) {
               </div>
             </figure>
           ))}
-          {Array.from({ length: uploading }, (_, i) => <div key={`up-${i}`} className="attachment attachment-pending" aria-label="Uploading" />)}
+          {queue.items().map((u) => <UploadTile key={u.key} item={u} onRetry={queue.retry} onDismiss={queue.dismiss} />)}
           {isOwner && count + uploading < MAX_FILES && (
             <button type="button" className="attachment-add" onClick={() => inputRef.current?.click()}>
               <Icon.paperclip />

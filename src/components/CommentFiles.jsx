@@ -4,7 +4,8 @@ import { useToast } from '../context/ToastContext';
 import { confirmDialog } from '../lib/dialog';
 import { purgeDriveTrash } from '../lib/drive';
 import { Icon } from './ui';
-import { FileTile, UploadingTile, checkFiles, deleteAttachment, extOf, storedPaths, uploadAttachment, withUrls } from './Attachments';
+import { UploadTile, useUploadQueue } from './UploadQueue';
+import { FileTile, checkFiles, deleteAttachment, extOf, storedPaths, uploadAttachment, withUrls } from './Attachments';
 
 // Files added with a comment: task_attachments rows with a comment_id, listed under their comment
 // rather than in the task's Attachments. See supabase/migrations/20261104_comment_files.sql.
@@ -13,7 +14,7 @@ import { FileTile, UploadingTile, checkFiles, deleteAttachment, extOf, storedPat
 export function useCommentFiles(task, userId) {
   const toast = useToast();
   const [files, setFiles] = useState([]);
-  const [uploading, setUploading] = useState({}); // comment id -> files on their way
+  const queue = useUploadQueue((row) => setFiles((list) => (list.some((x) => x.id === row.id) ? list : [...list, row])));
 
   useEffect(() => {
     let alive = true;
@@ -43,22 +44,10 @@ export function useCommentFiles(task, userId) {
     };
   }, [task.id]);
 
-  const count = (commentId, n) => setUploading((u) => ({ ...u, [commentId]: (u[commentId] || 0) + n }));
-
   // `checked` comes from checkFiles.
-  const upload = async (commentId, checked) => {
+  const upload = (commentId, checked) => {
     if (!checked.length) return;
-    count(commentId, checked.length);
-    await Promise.all(checked.map(async ({ file, type }) => {
-      try {
-        const row = await uploadAttachment({ file, type, task, userId, commentId, toast });
-        setFiles((list) => (list.some((x) => x.id === row.id) ? list : [...list, row]));
-      } catch (err) {
-        toast(`Could not add ${file.name || 'file'} to the comment: ${err.message}`, 'error');
-      } finally {
-        count(commentId, -1);
-      }
-    }));
+    queue.add(checked, ({ file, type }, onProgress) => uploadAttachment({ file, type, task, userId, commentId, toast, onProgress }), commentId);
   };
 
   const remove = async (item) => {
@@ -89,7 +78,9 @@ export function useCommentFiles(task, userId) {
 
   return {
     of: (commentId) => files.filter((f) => f.comment_id === commentId),
-    uploadingFor: (commentId) => uploading[commentId] || 0,
+    uploadsFor: (commentId) => queue.items(commentId),
+    retryUpload: queue.retry,
+    dismissUpload: queue.dismiss,
     upload,
     remove,
     clearDeleted,
@@ -97,12 +88,12 @@ export function useCommentFiles(task, userId) {
 }
 
 /** A comment's files, under its text. */
-export function CommentFileList({ files, uploading = 0, onOpen, canRemove }) {
-  if (!files.length && !uploading) return null;
+export function CommentFileList({ files, uploads = [], onRetry, onDismiss, onOpen, canRemove }) {
+  if (!files.length && !uploads.length) return null;
   return (
     <div className="attachments comment-files">
       {files.map((a) => <FileTile key={a.id} file={a} onOpen={onOpen} onRemove={canRemove?.(a)} />)}
-      {Array.from({ length: uploading }, (_, i) => <UploadingTile key={`up-${i}`} />)}
+      {uploads.map((u) => <UploadTile key={u.key} item={u} onRetry={onRetry} onDismiss={onDismiss} />)}
     </div>
   );
 }

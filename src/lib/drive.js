@@ -27,11 +27,23 @@ async function call(body) {
 }
 
 // Sends the bytes to the Drive upload session the server started. Google answers with the file.
-async function put(url, blob) {
-  const res = await fetch(url, { method: 'PUT', body: blob });
-  const file = await res.json().catch(() => null);
-  if (!res.ok || !file?.id) throw new Error("the file couldn't be sent to Google Drive");
-  return file.id;
+// XMLHttpRequest rather than fetch: only it reports upload progress (onProgress(loaded, total)).
+function put(url, blob, onProgress) {
+  return new Promise((resolve, reject) => {
+    const failed = () => reject(new Error("the file couldn't be sent to Google Drive"));
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    if (onProgress) xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded, e.total);
+    xhr.onload = () => {
+      let file = null;
+      try { file = JSON.parse(xhr.responseText); } catch { /* not JSON: treated as a failure below */ }
+      if (xhr.status >= 200 && xhr.status < 300 && file?.id) resolve(file.id);
+      else failed();
+    };
+    xhr.onerror = failed;
+    xhr.onabort = failed;
+    xhr.send(blob);
+  });
 }
 
 /**
@@ -39,14 +51,15 @@ async function put(url, blob) {
  * comment `commentId` if that's given too; project_files otherwise). Returns the new row, or null when Drive isn't set up, in which case
  * the caller uploads to Supabase Storage instead.
  */
-export async function uploadToDrive({ projectId, taskId = null, commentId = null, name, body, mime, thumb = null }) {
+export async function uploadToDrive({ projectId, taskId = null, commentId = null, name, body, mime, thumb = null, onProgress }) {
   if (driveOff) return null;
   const started = await call({
     action: 'start', project_id: projectId, task_id: taskId, comment_id: commentId, name, mime, size: body.size,
     thumb: thumb ? { mime: thumb.mime, size: thumb.blob.size } : null,
   });
   if (!started) return null;
-  const driveId = await put(started.file.url, body);
+  onProgress?.(0, body.size);
+  const driveId = await put(started.file.url, body, onProgress);
   // Best effort, like thumbnails in storage: without one the grid shows the full image.
   const thumbId = started.thumb ? await put(started.thumb.url, thumb.blob).catch(() => null) : null;
   const finished = await call({

@@ -45,6 +45,7 @@ export default function Login() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError('');
     setNotice('');
@@ -97,7 +98,7 @@ export default function Login() {
           )}
           {error && <p className="form-error">{error}</p>}
           {notice && <p className="form-notice">{notice}</p>}
-          <button className="btn btn-primary btn-wide" disabled={busy}>
+          <button className="btn btn-primary btn-wide" aria-busy={busy}>
             {busy ? 'One moment…' : { signin: 'Sign in', signup: 'Create account', forgot: 'Send reset link' }[mode]}
           </button>
         </form>

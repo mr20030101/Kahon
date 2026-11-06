@@ -29,7 +29,7 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
 
   const add = async (e) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (busy || !email.trim()) return;
     setBusy(true);
     setError('');
     const { data, error: err } = await supabase.rpc('add_member_by_email', { p_project: project.id, p_email: email.trim(), p_role: inviteRole });
@@ -126,7 +126,7 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
     <Modal title="Members" onClose={onClose} width={520}>
       {isOwner && (
         <form onSubmit={add} className="invite-row">
-          <input className="input" type="email" placeholder="teammate@company.com" value={email} list="workspace-people"
+          <input className="input" type="email" required placeholder="teammate@company.com" value={email} list="workspace-people"
             onChange={(e) => setEmail(e.target.value)} aria-label="Teammate email" />
           <datalist id="workspace-people">
             {colleagues.map((c) => <option key={c.user_id} value={c.profile.email}>{c.profile.full_name}</option>)}
@@ -137,7 +137,7 @@ export default function MembersModal({ project, members, isOwner, onClose, onCha
               {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </label>
-          <button className="btn btn-primary" disabled={busy || !email.trim()}>{busy ? 'Adding…' : 'Add'}</button>
+          <button className="btn btn-primary" aria-busy={busy}>{busy ? 'Adding…' : 'Add'}</button>
         </form>
       )}
       {error && <p className="form-error">{error}</p>}

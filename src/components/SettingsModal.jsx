@@ -79,6 +79,8 @@ function ProfileSection() {
 
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    if (!dirty) return toast('Nothing has changed yet');
     if (!form.full_name.trim()) return toast('Your full name is required', 'error');
     setSaving(true);
     const error = await updateProfile({
@@ -192,7 +194,7 @@ function ProfileSection() {
       </fieldset>
 
       <div className="settings-actions">
-        <button className="btn btn-primary" disabled={saving || !dirty}>{saving ? 'Saving…' : 'Save changes'}</button>
+        <button className="btn btn-primary" aria-busy={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
         {dirty && <button type="button" className="link-btn" onClick={() => setForm(draftFrom(profile))}>Discard</button>}
       </div>
     </form>
@@ -358,7 +360,7 @@ function EmailBlock() {
         <form className="inline-form" onSubmit={submit}>
           <input className="input" type="email" required autoFocus placeholder="New email address" value={email}
             onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-          <button className="btn btn-primary" disabled={busy || !email.trim()}>{busy ? 'Sending…' : 'Send confirmation'}</button>
+          <button className="btn btn-primary" aria-busy={busy}>{busy ? 'Sending…' : 'Send confirmation'}</button>
           <button type="button" className="link-btn" onClick={() => { setEditing(false); setError(''); }}>Cancel</button>
         </form>
       )}
@@ -398,17 +400,17 @@ function PasswordBlock() {
         <form className="stack" onSubmit={change}>
           <div className="settings-grid">
             <label className="label">New password
-              <input className="input" type="password" autoFocus value={password} minLength={8} autoComplete="new-password"
+              <input className="input" type="password" required autoFocus value={password} minLength={8} autoComplete="new-password"
                 onChange={(e) => setPassword(e.target.value)} />
             </label>
             <label className="label">Confirm new password
-              <input className="input" type="password" value={confirm} autoComplete="new-password"
+              <input className="input" type="password" required value={confirm} autoComplete="new-password"
                 onChange={(e) => setConfirm(e.target.value)} />
             </label>
           </div>
           {error && <p className="form-error">{error}</p>}
           <div className="settings-actions">
-            <button className="btn btn-primary" disabled={busy || !password}>{busy ? 'Saving…' : 'Change password'}</button>
+            <button className="btn btn-primary" aria-busy={busy}>{busy ? 'Saving…' : 'Change password'}</button>
             <button type="button" className="link-btn" onClick={() => { setOpen(false); setError(''); }}>Cancel</button>
           </div>
         </form>
@@ -497,7 +499,7 @@ function TwoFactorBlock() {
         <div className="info-box">
           <Icon.info />
           <span className="grow">Two-factor authentication is off.</span>
-          <button type="button" className="btn btn-primary btn-small" onClick={start} disabled={busy}>{busy ? 'Starting…' : 'Set up'}</button>
+          <button type="button" className="btn btn-primary btn-small" onClick={start} aria-busy={busy}>{busy ? 'Starting…' : 'Set up'}</button>
         </div>
       )}
       {setup && (
@@ -509,10 +511,10 @@ function TwoFactorBlock() {
               <li>Can't scan it? Enter this key instead: <code className="mfa-secret">{setup.secret}</code></li>
               <li>Type the 6-digit code the app shows.</li>
             </ol>
-            <input className="input code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required
+            <input className="input code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} minLength={6} pattern="[0-9]{6}" required
               placeholder="000000" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} aria-label="6-digit code" />
             <div className="settings-actions">
-              <button className="btn btn-primary" disabled={busy || code.length !== 6}>{busy ? 'Checking…' : 'Turn on'}</button>
+              <button className="btn btn-primary" aria-busy={busy}>{busy ? 'Checking…' : 'Turn on'}</button>
               <button type="button" className="link-btn" onClick={cancelSetup}>Cancel</button>
             </div>
           </div>
@@ -573,6 +575,7 @@ function DeleteBlock() {
   const [busy, setBusy] = useState(false);
 
   const remove = async () => {
+    if (busy) return;
     const ok = await confirmDialog({
       title: 'Delete your account?',
       text: `This permanently deletes ${user.email}: your profile, photo, comments and uploaded files. Projects only you are in are deleted too. Projects you created with co-owners pass to them. This cannot be undone.`,
@@ -599,16 +602,16 @@ function DeleteBlock() {
   return (
     <Block title="Deletion">
       <ActionRow text="Deleting your account is a permanent action and cannot be undone" action={busy ? 'Deleting…' : 'Delete my account'}
-        onClick={remove} danger disabled={busy} />
+        onClick={remove} danger busy={busy} />
     </Block>
   );
 }
 
-function ActionRow({ text, action, onClick, danger, disabled }) {
+function ActionRow({ text, action, onClick, danger, busy = false }) {
   return (
     <div className="action-row">
       <span className="muted">{text}</span>
-      <button type="button" className={`action-link${danger ? ' is-danger' : ''}`} onClick={onClick} disabled={disabled}>
+      <button type="button" className={`action-link${danger ? ' is-danger' : ''}`} onClick={onClick} aria-busy={busy}>
         {action} <Icon.chevron width="16" height="16" />
       </button>
     </div>

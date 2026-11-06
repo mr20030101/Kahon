@@ -95,15 +95,15 @@ export default function AskAI({ taskId, canAddSubtasks, onAddSubtasks, onPostCom
       <h4 className="panel-h"><Icon.sparkle /> Ask AI</h4>
       <div className="ask-actions">
         {ACTIONS.filter((a) => a.kind !== 'subtasks' || canAddSubtasks).map((a) => (
-          <button key={a.kind} type="button" className="btn btn-ghost btn-small" disabled={busy} onClick={() => ask(a.kind)}>
+          <button key={a.kind} type="button" className="btn btn-ghost btn-small" onClick={() => ask(a.kind)}>
             {a.label}
           </button>
         ))}
       </div>
       <form className="ask-form" onSubmit={submit}>
-        <input className="input" value={question} maxLength={2000} placeholder="Ask anything about this task"
+        <input className="input" required value={question} maxLength={2000} placeholder="Ask anything about this task"
           onChange={(e) => setQuestion(e.target.value)} aria-label="Question for the AI" />
-        <button className="btn btn-primary" disabled={busy || !question.trim()}>Ask</button>
+        <button className="btn btn-primary" aria-busy={!!busy}>Ask</button>
       </form>
 
       {answer && (
