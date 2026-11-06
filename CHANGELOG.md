@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.12.0 — 2026-11-06
+
 ### Changed
 
 - Uploads show what's happening. Each file being added to a task, a comment or a project's reference files gets its own tile with a preview (or file type), its size, and a progress bar with the percent done and roughly how long is left. If one fails it stays there with **Retry**, so you don't have to pick the file again, and the other files carry on.
