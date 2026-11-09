@@ -61,6 +61,9 @@ export const Icon = {
   table: svg(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M9.5 9.5v10" /></>),
   divider: svg(<path d="M4 12h16M7 7h10M7 17h10" strokeOpacity="1" />),
   codeBlock: svg(<><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M10 10l-2.2 2.2L10 14.4M14 10l2.2 2.2-2.2 2.2" /></>),
+  arrowsUpDown: svg(<path d="M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4" />),
+  checkCircle: svg(<><circle cx="12" cy="12" r="9" /><path d="M8.5 12.5l2.5 2.5 4.5-5" /></>),
+  userCircle: svg(<><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.7 18.4c1-2 2.9-3.2 5.3-3.2s4.3 1.2 5.3 3.2" /></>),
   numbered: svg(<path d="M10 6h10M10 12h10M10 18h10M4 5l1.5-1v5M4 14.2c0-.8.6-1.2 1.3-1.2s1.2.5 1.2 1.1c0 1.2-2.5 1.9-2.5 3.4h2.6" />),
 };
 

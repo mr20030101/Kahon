@@ -10,6 +10,7 @@ import { FieldChips } from './FieldsModal';
 import { LabelChips } from './LabelsModal';
 import { Avatar, Check, CreatedLabel, DueLabel, EditableText, Icon, InlineAdd, PriorityTag } from './ui';
 import { useDeleteSection } from './DeleteSectionDialog';
+import BulkBar, { useTaskSelection } from './BulkBar';
 
 export default function BoardView({ sections, tasks, members, hideCompleted, actions, onOpen, labels = [], labelsByTask, extrasByTask, fields = [], fieldValuesByTask, readOnly }) {
   const [active, setActive] = useState(null);
@@ -38,6 +39,10 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
   }, []);
 
   const columnTasks = (sectionId) => top.filter((t) => t.section_id === sectionId).sort(byPosition);
+  const order = sections.flatMap((s) => columnTasks(s.id).map((t) => t.id));
+  const selection = useTaskSelection(order);
+  const picked = new Set(selection.ids);
+  const select = readOnly ? null : { picked, active: picked.size > 0, pick: selection.pick };
 
   const onDragEnd = ({ active: drag, over }) => {
     setActive(null);
@@ -68,7 +73,7 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
         <SortableContext items={sections.map((s) => sectionDndId(s.id))} strategy={horizontalListSortingStrategy}>
           {sections.map((s) => (
             <Column key={s.id} section={s} tasks={columnTasks(s.id)} counts={counts} memberById={memberById} deco={deco}
-              actions={actions} onOpen={onOpen} readOnly={readOnly} onDeleteSection={deleteSection.ask} />
+              actions={actions} onOpen={onOpen} readOnly={readOnly} onDeleteSection={deleteSection.ask} select={select} />
           ))}
         </SortableContext>
         {!readOnly && (
@@ -90,11 +95,15 @@ export default function BoardView({ sections, tasks, members, hideCompleted, act
         )}
       </DragOverlay>
       {deleteSection.dialog}
+      {select?.active && (
+        <BulkBar ids={selection.ids} total={order.length} tasks={tasks} sections={sections} members={members} actions={actions}
+          onClear={selection.clear} onSelectAll={selection.selectAll} />
+      )}
     </DndContext>
   );
 }
 
-function Column({ section, tasks, counts, memberById, deco, actions, onOpen, readOnly, onDeleteSection }) {
+function Column({ section, tasks, counts, memberById, deco, actions, onOpen, readOnly, onDeleteSection, select }) {
   const sortable = useSortable({ id: sectionDndId(section.id), data: { type: 'section', sectionId: section.id }, disabled: readOnly });
   const { setNodeRef, isOver } = useDroppable({ id: columnDndId(section.id), data: { type: 'column', sectionId: section.id } });
   const style = { transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition };
@@ -118,7 +127,7 @@ function Column({ section, tasks, counts, memberById, deco, actions, onOpen, rea
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className="column-body" data-settle={sectionDndId(section.id)}>
           {tasks.map((t) => (
-            <SortableCard key={t.id} task={t} count={counts[t.id]} memberById={memberById} deco={deco} actions={actions} onOpen={onOpen} readOnly={readOnly} />
+            <SortableCard key={t.id} task={t} count={counts[t.id]} memberById={memberById} deco={deco} actions={actions} onOpen={onOpen} readOnly={readOnly} select={select} />
           ))}
           {tasks.length === 0 && <p className="column-empty">{readOnly ? 'No tasks' : 'Drop tasks here'}</p>}
         </div>
@@ -131,19 +140,40 @@ function Column({ section, tasks, counts, memberById, deco, actions, onOpen, rea
   );
 }
 
-function SortableCard({ task, count, memberById, deco, actions, onOpen, readOnly }) {
+// Cmd/Ctrl-click picks a card, Shift-click picks a range. While anything is picked,
+// a plain click or tap picks too, so touch can select through the card's circle.
+function SortableCard({ task, count, memberById, deco, actions, onOpen, readOnly, select }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, data: { type: 'task', task }, disabled: readOnly });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const isPicked = !!select?.picked.has(task.id);
+  const activate = (e) => {
+    if (select && (e.metaKey || e.ctrlKey || e.shiftKey || select.active)) {
+      e.preventDefault();
+      select.pick(task.id, { range: e.shiftKey });
+    } else {
+      onOpen(task.id);
+    }
+  };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className={`card-slot${isDragging ? ' is-dragging' : ''}`}
-      onClick={() => onOpen(task.id)}
+      className={`card-slot${isDragging ? ' is-dragging' : ''}${isPicked ? ' is-picked' : ''}`}
+      aria-selected={select ? isPicked : undefined}
+      onClick={activate}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onOpen(task.id);
+        if (e.key === 'Enter') activate(e);
+        else if (e.key === 'x' && select) select.pick(task.id);
         listeners?.onKeyDown?.(e);
       }}>
       <CardBody task={task} count={count} memberById={memberById} deco={deco}
-        onToggle={readOnly ? undefined : (v) => actions.updateTask(task.id, { completed: v })} />
+        onToggle={readOnly ? undefined : (v) => actions.updateTask(task.id, { completed: v })}
+        picker={select && (
+          <button type="button" className={`card-pick${isPicked ? ' is-on' : ''}${select.active ? ' is-visible' : ''}`}
+            aria-pressed={isPicked} aria-label={`${isPicked ? 'Deselect' : 'Select'} ${task.title} (X)`} title={isPicked ? 'Deselect (X)' : 'Select (X)'}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); select.pick(task.id, { range: e.shiftKey }); }}>
+            <Icon.check width="12" height="12" />
+          </button>
+        )} />
     </div>
   );
 }
@@ -154,7 +184,7 @@ function LiftedColumn({ children }) {
   return <section ref={ref} className="column is-lifted">{children}</section>;
 }
 
-function CardBody({ task, count, memberById, deco, onToggle, lifted }) {
+function CardBody({ task, count, memberById, deco, onToggle, lifted, picker }) {
   const ref = useRef(null);
   const assignee = memberById[task.assignee_id];
   const extras = (deco?.extrasByTask?.get(task.id) ?? []).map((id) => memberById[id]).filter(Boolean);
@@ -167,6 +197,7 @@ function CardBody({ task, count, memberById, deco, onToggle, lifted }) {
       <div className="card-top">
         <Check checked={task.completed} onChange={onToggle || (() => {})} disabled={!onToggle && !lifted} />
         <p className="card-title">{task.title}</p>
+        {picker}
       </div>
       {labelIds?.length > 0 && <LabelChips ids={labelIds} labels={deco.labels} />}
       <FieldChips fields={deco?.fields} values={deco?.fieldValuesByTask?.get(task.id)} />

@@ -14,6 +14,16 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Select several tasks on the board: Cmd/Ctrl-click cards, Shift-click to take a range, or use the circle on a card (always shown on phones and tablets). While anything is selected, a click or tap selects instead of opening the task. Selected cards are outlined.
+
+### Changed
+
+- Selected tasks, on the board or in the list, get a floating bar at the bottom of the screen: **Move to section**, **Mark complete** (or incomplete), **Assign**, **Due date** (Today, Tomorrow, In a week, a picked date or none), **Delete**, and **⋯** for priority and **Select all shown**. Each action says how many tasks it changed. Esc clears the selection and Delete removes the tasks (after asking first).
+- In the list, Shift-click a row's checkbox to select a range.
+- Tasks moved to another section together keep their order and land at the end of it.
+
 ## 1.12.0 — 2026-11-06
 
 ### Changed

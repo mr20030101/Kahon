@@ -218,12 +218,30 @@ export function useProject(projectId) {
   // ---------- Bulk ----------
   const bulkUpdate = useCallback(async (ids, patch) => {
     ids.forEach((id) => upsert('tasks', { id, ...patch }));
+    if (patch.completed === true) {
+      ref.current.tasks.filter((t) => ids.includes(t.parent_id) && !t.completed)
+        .forEach((t) => upsert('tasks', { id: t.id, completed: true }));
+    }
     const { error } = await supabase.from('tasks').update(patch).in('id', ids);
     if (error) return fail(error);
     ids.forEach((id) => {
       if (patch.assignee_id) notify('task_assigned', { task_id: id });
       notifyTaskUpdate(id, patch);
     });
+  }, [fail, upsert]);
+
+  // Moved tasks go to the end of the section, keeping their current order.
+  const bulkMove = useCallback(async (ids, sectionId) => {
+    const all = ref.current.tasks;
+    const last = all.filter((t) => t.section_id === sectionId && !t.parent_id && !ids.includes(t.id))
+      .reduce((max, t) => Math.max(max, t.position), 0);
+    const moving = all.filter((t) => ids.includes(t.id)).sort(byPosition)
+      .map((t, i) => ({ id: t.id, section_id: sectionId, position: last + 1000 * (i + 1) }));
+    moving.forEach((row) => upsert('tasks', row));
+    const results = await Promise.all(moving.map(({ id, ...patch }) => supabase.from('tasks').update(patch).eq('id', id)));
+    const error = results.find((r) => r.error)?.error;
+    if (error) return fail(error);
+    moving.forEach(({ id, ...patch }) => notifyTaskUpdate(id, patch));
   }, [fail, upsert]);
 
   const bulkDelete = useCallback(async (ids) => {
@@ -316,7 +334,7 @@ export function useProject(projectId) {
       createTask, updateTask, patchLocal, removeLocal,
       createSection, renameSection, moveSection, deleteSection, sectionTaskCount,
       updateProject, deleteProject, setArchived, duplicateProject,
-      bulkUpdate, bulkDelete,
+      bulkUpdate, bulkMove, bulkDelete,
       createLabel, updateLabel, deleteLabel,
       createField, updateField, deleteField,
     },
