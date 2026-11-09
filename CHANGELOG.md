@@ -14,6 +14,8 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.13.0 — 2026-11-09
+
 ### Added
 
 - Select several tasks on the board: Cmd/Ctrl-click cards, Shift-click to take a range, or use the circle on a card (always shown on phones and tablets). While anything is selected, a click or tap selects instead of opening the task. Selected cards are outlined.
