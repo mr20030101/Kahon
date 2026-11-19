@@ -11,7 +11,7 @@ import Comments from './Comments';
 import TaskTimer from './TaskTimer';
 import CustomFields from './CustomFields';
 import RichText from './RichText';
-import { ActivityLog, ExtraAssignees, LabelPicker, MoveTaskModal, RepeatSelect } from './TaskExtras';
+import { ActivityLog, ExtraAssignees, LabelPicker, MergeTaskModal, MoveTaskModal, RepeatSelect } from './TaskExtras';
 import { AssigneeSelect, Avatar, Check, DueInput, Icon, InlineAdd, PrioritySelect } from './ui';
 import { confirmDialog, isDialogOpen } from '../lib/dialog';
 import { notify, notifyTaskUpdate } from '../lib/notify';
@@ -33,6 +33,7 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
   const [showActivity, setShowActivity] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [merging, setMerging] = useState(false);
   const [fileDrag, setFileDrag] = useState(false);
   const attachmentsRef = useRef(null);
   const commentsRef = useRef(null);
@@ -286,6 +287,9 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
                   {editable && !task.parent_id && (
                     <button className="menu-item" onClick={() => { setShowMenu(false); setMoving(true); }}><Icon.move /> Move to project…</button>
                   )}
+                  {editable && (
+                    <button className="menu-item" onClick={() => { setShowMenu(false); setMerging(true); }}><Icon.merge /> Merge into…</button>
+                  )}
                   <button className="menu-item" onClick={copyLink}><Icon.link /> Copy link</button>
                   <button className="menu-item" onClick={copyId}><Icon.copy /> Copy task ID</button>
                   {editable && <button className="menu-item danger" onClick={() => { setShowMenu(false); deleteTask(); }}><Icon.trash /> Delete task</button>}
@@ -447,6 +451,13 @@ export default function TaskPanel({ taskId, onClose, onPatch, onRemoved }) {
           setMoving(false);
           onRemoved?.(taskId);
           navigate(`/p/${projectId}?task=${taskId}`);
+        }} />
+      )}
+      {merging && task && (
+        <MergeTaskModal task={task} onClose={() => setMerging(false)} onMerged={(targetId) => {
+          setMerging(false);
+          onRemoved?.(taskId);
+          navigate(`/p/${task.project_id}?task=${targetId}`);
         }} />
       )}
     </>

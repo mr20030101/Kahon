@@ -31,6 +31,7 @@ export const Icon = {
   repeat: svg(<path d="M17 2l3 3-3 3M20 5H8a4 4 0 0 0-4 4v1M7 22l-3-3 3-3M4 19h12a4 4 0 0 0 4-4v-1" />),
   copy: svg(<><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></>),
   move: svg(<path d="M5 12h14M13 6l6 6-6 6" />),
+  merge: svg(<path d="M7 4v4l5 5 5-5V4M12 13v7M9 17l3 3 3-3" />),
   archive: svg(<><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4" /></>),
   calendar: svg(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>),
   edit: svg(<path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />),

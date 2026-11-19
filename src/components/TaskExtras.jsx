@@ -8,7 +8,7 @@ import { Avatar, Icon, Modal } from './ui';
 import { hasThumb } from './Attachments';
 import { thumbPathOf } from '../lib/uploads';
 
-// Pieces of the task panel: labels, extra assignees, repeat, activity history, moving.
+// Pieces of the task panel: labels, extra assignees, repeat, activity history, moving, merging.
 
 function usePopover() {
   const [open, setOpen] = useState(false);
@@ -188,6 +188,7 @@ export function ActivityLog({ taskId, members }) {
       case 'project': return `moved it to ${r.new_value}`;
       case 'title': return `renamed it to "${r.new_value}"`;
       case 'recurrence': return `set it to repeat ${r.new_value}`;
+      case 'merged': return `merged "${r.new_value}" into it`;
       default: return FIELD_TEXT[r.field] || `changed ${r.field}`;
     }
   };
@@ -278,6 +279,85 @@ export function MoveTaskModal({ task, onClose, onMoved }) {
           </div>
         </div>
       )}
+    </Modal>
+  );
+}
+
+/** Merge a duplicate task into another task in the same project, then delete the duplicate. */
+export function MergeTaskModal({ task, onClose, onMerged }) {
+  const toast = useToast();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState(null);
+  const [targetId, setTargetId] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const q = query.trim();
+    const timer = setTimeout(async () => {
+      // Its own subtasks would go with it, so they can't be the target.
+      let req = supabase.from('tasks').select('id, title, short_id, completed, parent_id')
+        .eq('project_id', task.project_id).neq('id', task.id)
+        .or(`parent_id.is.null,parent_id.neq.${task.id}`)
+        .order('completed').order('updated_at', { ascending: false }).limit(30);
+      if (q) req = req.ilike('title', `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+      const { data, error } = await req;
+      if (!alive) return;
+      if (error) toast(error.message, 'error');
+      setResults(data || []);
+    }, q ? 200 : 0);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [query, task.id, task.project_id, toast]);
+
+  const target = results?.find((r) => r.id === targetId);
+
+  const merge = async () => {
+    if (busy || !target) return;
+    setBusy(true);
+    const { error } = await supabase.rpc('merge_tasks', { p_source: task.id, p_target: target.id });
+    if (error) {
+      toast(`Could not merge the task: ${error.message}`, 'error');
+      setBusy(false);
+      return;
+    }
+    toast(`Merged into "${target.title}"`);
+    onMerged(target.id);
+  };
+
+  return (
+    <Modal title="Merge task" onClose={onClose} width={500}>
+      <div className="stack">
+        <p className="muted small">
+          Merge <strong>{task.title}</strong> into another task in this project. Its comments, attachments, subtasks,
+          time and labels move there, empty details are filled in, and its description is added to the end. Then this
+          task is deleted.
+        </p>
+        <label className="search-box merge-search">
+          <Icon.search width="16" height="16" />
+          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a task…" aria-label="Find a task" />
+        </label>
+        <div className="merge-list" role="radiogroup" aria-label="Task to merge into">
+          {results === null && <p className="muted small">Loading…</p>}
+          {results?.length === 0 && <p className="muted small">No tasks match.</p>}
+          {results?.map((r) => (
+            <label key={r.id} className={`picker-row${r.id === targetId ? ' is-on' : ''}`}>
+              <input type="radio" name="merge-target" checked={r.id === targetId} onChange={() => setTargetId(r.id)} />
+              <span className={`merge-title${r.completed ? ' is-done' : ''}`}>{r.title}</span>
+              {r.parent_id && <span className="muted small">subtask</span>}
+              {r.short_id && <span className="task-id">{r.short_id}</span>}
+            </label>
+          ))}
+        </div>
+        <div className="settings-actions">
+          <button className="btn btn-primary" onClick={merge} disabled={!target} aria-busy={busy}>
+            {busy ? 'Merging…' : 'Merge task'}
+          </button>
+          <button className="link-btn" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
     </Modal>
   );
 }
