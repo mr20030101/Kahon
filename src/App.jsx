@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { supabaseConfigured } from './lib/supabase';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -15,6 +15,7 @@ import MyTasks from './pages/MyTasks';
 import ProjectPage from './pages/ProjectPage';
 import MfaChallenge from './pages/MfaChallenge';
 import ResetPassword from './pages/ResetPassword';
+import OAuthConsent from './pages/OAuthConsent';
 import Inbox from './pages/Inbox';
 import AdminUsers from './pages/AdminUsers';
 import AdminWorkspaces from './pages/AdminWorkspaces';
@@ -27,15 +28,49 @@ import SearchPalette from './components/SearchPalette';
 import Topbar from './components/Topbar';
 import FloatingTimer from './components/FloatingTimer';
 
+const CONSENT_KEY = 'kahon:oauth-consent';
+
+function rememberConsent(search) {
+  try { sessionStorage.setItem(CONSENT_KEY, search); } catch { /* private mode: no fallback needed */ }
+}
+
+function takeConsent() {
+  try {
+    const search = sessionStorage.getItem(CONSENT_KEY);
+    sessionStorage.removeItem(CONSENT_KEY);
+    return search;
+  } catch {
+    return null;
+  }
+}
+
+// Once signed in, carry on to a connection request that sign-in navigated away from.
+function useResumeConsent(session, pathname) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!session) return;
+    const search = takeConsent();
+    if (search && pathname !== '/oauth/consent') navigate(`/oauth/consent${search}`, { replace: true });
+  }, [session, pathname, navigate]);
+}
+
 function Shell() {
   const { session, loading, needsMfa, recovering } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
+  const { pathname } = useLocation();
+  useResumeConsent(session, pathname);
 
   if (loading) return <div className="splash"><Logo size={56} /></div>;
-  if (!session) return <Login />;
+  if (!session) {
+    // Signing in with Google returns to the home page; remember the connection request.
+    if (pathname === '/oauth/consent') rememberConsent(window.location.search);
+    return <Login />;
+  }
   if (needsMfa === null) return <div className="splash"><Logo size={56} /></div>;
   if (needsMfa) return <MfaChallenge />;
   if (recovering) return <ResetPassword />;
+  // An app such as Claude asking to connect as this person (src/lib/mcp.js).
+  if (pathname === '/oauth/consent') return <OAuthConsent />;
 
   return (
     <WorkspaceProvider>

@@ -905,6 +905,12 @@ button.label-chip.is-on { opacity: 1; box-shadow: 0 0 0 1.5px var(--chip); }
 .picker-menu { left: 0; right: auto; width: 240px; max-height: 280px; overflow-y: auto; display: grid; gap: 2px; }
 .picker-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; font-size: 14px; cursor: pointer; }
 .picker-row:hover { background: var(--surface-2); }
+.merge-search { width: 100%; }
+.merge-list { display: grid; gap: 2px; max-height: min(320px, 45vh); overflow-y: auto; margin: 0 -6px; }
+.merge-list .picker-row.is-on { background: var(--surface-2); }
+.merge-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.merge-title.is-done { color: var(--ink-3); text-decoration: line-through; }
+.merge-list .task-id { cursor: inherit; }
 .person-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 2px; border-radius: 99px; background: var(--surface-2); font-size: 13px; }
 .avatar-row { display: inline-flex; }
 .avatar-row .avatar + .avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--surface); }
@@ -1555,3 +1561,8 @@ body:has(.modal-backdrop, .swal2-container) { overflow: hidden; }
 @keyframes upload-slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 .upload-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .upload-tile.is-failed { border-color: var(--danger); }
+
+/* OAuth consent (src/pages/OAuthConsent.jsx): an app such as Claude asking to connect. */
+.consent-list { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 46ch; }
+.consent-redirect { font-size: 13px; margin: 0; }
+.consent-actions { display: flex; gap: 10px; }

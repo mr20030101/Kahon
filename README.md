@@ -171,6 +171,40 @@ deleted, however that happens, the file is queued and deleted from Drive straigh
 the daily Vercel cron job. To test uploads to Drive locally, run `npx vercel dev` instead of
 `npm run dev`.
 
+### Connect Claude (MCP)
+
+Kahon runs an [MCP](https://modelcontextprotocol.io) server at `/api/mcp`, so Claude (claude.ai,
+Claude Desktop, Claude Code) can look up and update tasks for you. Each person connects their
+own account: Claude acts as them, sees only their projects, and can do only what their role in
+each project allows. It can list workspaces and projects, read projects, tasks and comments,
+search, create tasks and subtasks, update them (title, description, assignee, due date, priority,
+section, complete) and comment. It can't delete anything or change members or roles.
+
+Sign-in uses Supabase Auth's OAuth 2.1 server, so the server holds no secrets. Set it up once:
+
+1. Supabase → **Authentication → OAuth Server**: turn it on, set **Authorization path** to
+   `/oauth/consent`, and turn on **Dynamic client registration** (Claude registers itself).
+   Supabase sends people to that path on your **Site URL** (Authentication → URL Configuration),
+   so the Site URL must be the deployed app, e.g. `https://kahon.vercel.app`.
+2. Deploy. Nothing to add to Vercel's environment: `/api/mcp` uses `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_ANON_KEY`. Set `APP_URL` there only if the app is served from more than one
+   domain, to pin the address used in links.
+
+Then each person adds it in Claude:
+
+- **claude.ai / Claude Desktop**: Settings → Connectors → **Add custom connector**, URL
+  `https://<your-app>/api/mcp`, then **Connect**.
+- **Claude Code**: `claude mcp add --transport http kahon https://<your-app>/api/mcp`, then
+  `/mcp` → kahon → **Authenticate**.
+
+Either way, a browser opens on Kahon's **Connect Claude to Kahon?** page; after **Allow** the
+connection works until they revoke it or sign out everywhere. How it works: `src/lib/mcp.js`
+(protocol, sign-in check), `src/lib/mcpTools.js` (the tools), `src/pages/OAuthConsent.jsx`.
+
+People who have two-factor authentication turned on must pass it before the consent page. If
+Claude then gets empty results for them, their OAuth tokens aren't carrying `aal2`, which
+`mfa_ok()` requires.
+
 ### Error log
 
 Errors people hit in their browser are recorded in the `client_errors` table. Read them in

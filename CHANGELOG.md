@@ -14,6 +14,13 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.15.0 — 2026-11-19
+
+### Added
+
+- Connect Claude to Kahon. Add `https://<your-app>/api/mcp` as a connector in claude.ai, Claude Desktop or Claude Code, sign in and approve, and Claude can look up your projects and tasks, create and update tasks and comment, as you and only where your project role allows. It can't delete anything or change members. Needs Supabase's OAuth server turned on once (see README, "Connect Claude (MCP)").
+- Merge a duplicate task into another. In the task's ⋯ menu choose **Merge into…** and pick a task in the same project: comments, attachments, subtasks, time, labels, extra assignees and custom fields move over, an empty assignee, due date or priority is filled in, and the description is added at the end. Then the duplicate is deleted. Run `supabase/migrations/20261119_merge_tasks.sql` once (fresh installs get it from `schema.sql`).
+
 ## 1.14.0 — 2026-11-19
 
 ### Changed
