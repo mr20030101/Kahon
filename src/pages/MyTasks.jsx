@@ -245,7 +245,7 @@ export default function MyTasks() {
                   <div key={t.id} className={`card my-card${t.completed ? ' is-done' : ''}`} onClick={() => open(t.id)}>
                     <div className="card-top">
                       <Check checked={t.completed} onChange={(v) => toggle(t, v)} disabled={!canEdit(roles[t.project_id])} />
-                      <p className="card-title">{t.title}</p>
+                      <p className="card-title" title={t.title}>{t.title}</p>
                     </div>
                     <div className="card-meta">
                       <PriorityTag value={t.priority} />
