@@ -14,6 +14,14 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+## 1.14.0 — 2026-11-19
+
+### Changed
+
+- Long task titles on board cards and in My tasks are cut off after three lines with an ellipsis. Hover a card to see the whole title, or open the task.
+- Board columns are a little wider (320px, up from 290px).
+- With a mouse, board cards no longer show the selection circle next to the completion checkbox. Select with Cmd/Ctrl-click or Shift-click; selected cards are still outlined. Phones and tablets keep the circle.
+
 ## 1.13.0 — 2026-11-09
 
 ### Added

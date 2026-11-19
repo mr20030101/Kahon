@@ -196,7 +196,7 @@ function CardBody({ task, count, memberById, deco, onToggle, lifted, picker }) {
     <article ref={ref} data-settle={lifted ? undefined : task.id} className={`card${task.completed ? ' is-done' : ''}${lifted ? ' is-lifted' : ''}`}>
       <div className="card-top">
         <Check checked={task.completed} onChange={onToggle || (() => {})} disabled={!onToggle && !lifted} />
-        <p className="card-title">{task.title}</p>
+        <p className="card-title" title={task.title}>{task.title}</p>
         {picker}
       </div>
       {labelIds?.length > 0 && <LabelChips ids={labelIds} labels={deco.labels} />}

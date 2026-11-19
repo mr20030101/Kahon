@@ -490,7 +490,7 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .is-board .column { max-height: none; }
 .is-board .column-body { flex: 1; }
 .column {
-  flex: 0 0 290px; background: var(--surface-2); border-radius: 12px; padding: 10px;
+  flex: 0 0 320px; background: var(--surface-2); border-radius: 12px; padding: 10px;
   display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 200px); transition: box-shadow 0.15s;
 }
 .column.is-over { box-shadow: inset 0 0 0 2px var(--mango); }
@@ -511,7 +511,7 @@ h1.editable, h1 + .editable-input { font-size: 30px; }
 .card.is-lifted { box-shadow: var(--shadow-lift); cursor: grabbing; }
 .card-top { display: flex; gap: 10px; align-items: flex-start; }
 .card-top .check { margin-top: 1px; }
-.card-title { margin: 0; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+.card-title { margin: 0; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
 .card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .card-add { margin-top: 2px; }
 
@@ -968,9 +968,10 @@ body:has(.bulk-bar) .toasts { bottom: 84px; }
 .card-pick svg { stroke-width: 2.6; }
 .card-pick.is-visible, .card-pick:focus-visible { opacity: 1; }
 .card-pick.is-on { opacity: 1; border-color: var(--primary); background: var(--primary); color: var(--primary-ink); }
-@media (hover: hover) {
-  .card-slot:hover .card-pick { opacity: 1; }
-  .card-pick:hover { border-color: var(--primary); }
+/* With a mouse, Cmd/Ctrl/Shift-click selects and the outline shows it, so the circle would only
+   repeat the completion checkbox. */
+@media (hover: hover) and (pointer: fine) {
+  .card-pick { display: none; }
 }
 /* Touch has no hover, so the circle is always there; the hit area grows past the 20px dot. */
 @media (pointer: coarse) {
