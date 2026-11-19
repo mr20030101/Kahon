@@ -14,6 +14,10 @@ before versioning was set up shipped as 0.1.0.
 
 ## Unreleased
 
+### Added
+
+- Connect Claude to Kahon. Add `https://<your-app>/api/mcp` as a connector in claude.ai, Claude Desktop or Claude Code, sign in and approve, and Claude can look up your projects and tasks, create and update tasks and comment, as you and only where your project role allows. It can't delete anything or change members. Needs Supabase's OAuth server turned on once (see README, "Connect Claude (MCP)").
+
 ## 1.14.0 — 2026-11-19
 
 ### Changed
